@@ -39,14 +39,11 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<!-- PRO AUTH UX - proper header, signup, pricing auth flow + Paystack ready -->
+<!-- WORKING LOGIN + SIMPLE HEADER FIX -->
 <style>
-  #customAuthArea { display:flex; align-items:center; gap:10px; }
-  #customAuthArea img { width:32px; height:32px; border-radius:999px; border:2px solid #a855f7; }
-  #customAuthArea .email { font-size:12px; color:#a855f7; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #signOutBtn { font-size:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); padding:6px 12px; border-radius:999px; cursor:pointer; color:white; }
-  #signOutBtn:hover { background:rgba(255,255,255,0.12); }
-  .hidden-auth { display:none !important; }
+  #userBadgeTop { position:fixed; top:12px; right:12px; z-index:9999; background:#12121a; border:1px solid rgba(168,85,247,0.3); padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; font-size:12px; color:white; }
+  #userBadgeTop img { width:24px; height:24px; border-radius:999px; }
+  #userBadgeTop button { background:rgba(255,255,255,0.1); border:0; padding:4px 10px; border-radius:999px; color:white; font-size:11px; cursor:pointer; }
 </style>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -70,182 +67,125 @@ const supabase = createClient(
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-let currentUser = null;
-let pendingPlan = localStorage.getItem('pendingPlan');
 
 async function saveUser(user) {
-  await supabase.from('users').upsert({
-    id: user.uid,
-    email: user.email,
-    plan: 'free',
-    videos_used: 0,
-    videos_limit: 3
-  }, { onConflict: 'id' });
+  try {
+    await supabase.from('users').upsert({
+      id: user.uid,
+      email: user.email,
+      plan: 'free',
+      videos_used: 0,
+      videos_limit: 3
+    }, { onConflict: 'id' });
+    console.log("Saved to Supabase");
+  } catch(e){ console.error(e); }
 }
 
-async function doLogin(afterLoginPlan=null) {
+function showLoggedIn(email, photo) {
+  // Hide login buttons
+  document.querySelectorAll('button').forEach(b=>{
+    const t=(b.textContent||'').trim();
+    if(t==='Log in' || t==='Get Started' || t==='Sign up'){
+      b.style.display='none';
+    }
+    if(t==='Get Starter' || t==='Get Pro'){
+      // keep pricing buttons visible
+    }
+  });
+  // Remove old badge
+  const old=document.getElementById('userBadgeTop');
+  if(old) old.remove();
+  const badge=document.createElement('div');
+  badge.id='userBadgeTop';
+  badge.innerHTML = `<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}</span><button id="doSignOut">Sign out</button>`;
+  document.body.appendChild(badge);
+  document.getElementById('doSignOut').onclick=()=>{ signOut(auth); };
+}
+
+function showLoggedOut() {
+  document.querySelectorAll('button').forEach(b=>{
+    const t=(b.textContent||'').trim();
+    if(t==='Log in' || t==='Get Started' || t==='Sign up'){
+      b.style.display='';
+    }
+    // Rename Get Started to Sign up for clarity (only once)
+    if(t==='Get Started'){
+      b.textContent='Sign up';
+    }
+  });
+  const old=document.getElementById('userBadgeTop');
+  if(old) old.remove();
+}
+
+async function doLogin(planAfter=null) {
   try {
-    const result = await signInWithPopup(auth, provider);
-    await saveUser(result.user);
-    currentUser = result.user;
-    if (afterLoginPlan) {
-      localStorage.setItem('pendingPlan', afterLoginPlan);
-      pendingPlan = afterLoginPlan;
+    const res = await signInWithPopup(auth, provider);
+    await saveUser(res.user);
+    showLoggedIn(res.user.email, res.user.photoURL);
+    if(planAfter){
+      localStorage.setItem('pendingPlan', planAfter);
+      handlePlan(planAfter);
     }
-    updateUI(result.user);
-    if (pendingPlan) {
-      const plan = pendingPlan;
-      localStorage.removeItem('pendingPlan');
-      pendingPlan = null;
-      setTimeout(() => handleCheckout(plan), 500);
-    }
-  } catch(e) {
+  } catch(e){
     console.error(e);
-    if (!e.message.includes('closed')) alert("Login failed: " + e.message);
+    alert("Login error: "+e.message);
   }
 }
 
-function doLogout() {
-  signOut(auth).then(() => {
-    currentUser = null;
-    updateUI(null);
-    localStorage.removeItem('pendingPlan');
-  });
-}
-
-function handleCheckout(plan) {
-  if (!currentUser) {
-    // Not logged in -> login first, then checkout
+function handlePlan(plan){
+  const user = auth.currentUser;
+  if(!user){
     localStorage.setItem('pendingPlan', plan);
-    pendingPlan = plan;
-    alert("Please sign up / log in first to continue to payment for " + plan);
+    alert("Please sign up first for "+plan+" plan");
     doLogin(plan);
     return;
   }
-  // Logged in -> Paystack flow (for now toast, will add real Paystack next)
-  const toast = document.createElement('div');
-  toast.textContent = plan + " plan selected — Paystack checkout coming next (you are logged in as " + currentUser.email + ")";
-  toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:white;color:black;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:500;box-shadow:0 10px 40px rgba(0,0,0,0.3);z-index:9999;";
-  document.body.appendChild(toast);
-  setTimeout(()=>toast.remove(), 4000);
-  // TODO: Replace with real Paystack call:
-  // PaystackPop.newTransaction({key:'YOUR_PUBLIC_KEY', email: currentUser.email, amount: plan==='Pro'?5000*100:2000*100, onSuccess: ...})
-  console.log("Checkout for", plan, "user", currentUser.email);
+  alert(plan+" plan selected — Paystack checkout next (logged in as "+user.email+")");
 }
 
-function updateUI(user) {
-  currentUser = user;
-  // Find header containers
-  const desktopAuth = document.querySelector('header div.hidden.md\:flex.items-center.gap-3');
-  const mobileAuth = document.querySelector('header div.flex.gap-3.pt-2');
-  
-  // Remove old custom area if exists
-  document.querySelectorAll('#customAuthArea').forEach(el=>el.remove());
-
-  if (user) {
-    // Hide original login buttons
-    document.querySelectorAll('button').forEach(btn=>{
-      const t = (btn.textContent||'').trim();
-      if (t==='Log in' || t==='Get Started' || t==='Sign up') {
-        // hide but keep for React to not crash
-        btn.style.display='none';
-        btn.classList.add('hidden-auth');
-      }
-    });
-    // Create custom logged in UI in desktop header
-    if (desktopAuth) {
-      desktopAuth.style.display='none';
-      const area = document.createElement('div');
-      area.id='customAuthArea';
-      area.innerHTML = `
-        <img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.email)}" alt="avatar" />
-        <span class="email">${user.email}</span>
-        <button id="signOutBtn">Sign out</button>
-      `;
-      desktopAuth.parentNode.appendChild(area);
-      area.querySelector('#signOutBtn').addEventListener('click', doLogout);
-    }
-    // Mobile menu
-    if (mobileAuth) {
-      mobileAuth.style.display='none';
-      const mArea = document.createElement('div');
-      mArea.id='customAuthArea';
-      mArea.style.cssText='flex-direction:column;align-items:flex-start;gap:8px;padding-top:8px;';
-      mArea.innerHTML = `
-        <div style="display:flex;align-items:center;gap:8px;">
-          <img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.email)}" />
-          <span class="email">${user.email}</span>
-        </div>
-        <button id="signOutBtn" style="width:100%;">Sign out</button>
-      `;
-      mobileAuth.parentNode.appendChild(mArea);
-      mArea.querySelector('#signOutBtn').addEventListener('click', doLogout);
-    }
-  } else {
-    // Logged out -> show login buttons and rename Get Started to Sign up
-    if (desktopAuth) desktopAuth.style.display='';
-    if (mobileAuth) mobileAuth.style.display='';
-    document.querySelectorAll('button').forEach(btn=>{
-      const t = (btn.textContent||'').trim();
-      if (t==='Get Started') btn.textContent='Sign up';
-      if (t==='Log in' || t==='Get Started' || t==='Sign up') {
-        btn.style.display='';
-        btn.classList.remove('hidden-auth');
-      }
-    });
-  }
-}
-
-function attach() {
-  // Fix login/signup buttons
+function attach(){
   document.querySelectorAll('button').forEach(btn=>{
-    const txt = (btn.textContent||'').trim();
-    if ((txt==='Log in' || txt==='Sign up' || txt==='Get Started') && !btn.dataset.authFixed) {
-      btn.dataset.authFixed='true';
-      // Rename Get Started to Sign up when logged out
-      if (txt==='Get Started' && !currentUser) btn.textContent='Sign up';
+    const txt=(btn.textContent||'').trim();
+    // Auth buttons
+    if((txt==='Log in' || txt==='Sign up' || txt==='Get Started') && !btn.dataset.fixed){
+      btn.dataset.fixed="1";
+      if(txt==='Get Started') btn.textContent='Sign up';
       btn.addEventListener('click', (e)=>{
-        // Only handle auth buttons, not pricing
-        if (btn.textContent.includes('Starter') || btn.textContent.includes('Pro')) return;
-        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
-        if (currentUser) return;
+        e.preventDefault(); e.stopImmediatePropagation();
         doLogin();
       }, true);
     }
     // Pricing buttons
-    if ((txt==='Get Starter' || txt==='Get Pro') && !btn.dataset.planFixed) {
-      btn.dataset.planFixed='true';
+    if((txt==='Get Starter' || txt==='Get Pro') && !btn.dataset.planFixed){
+      btn.dataset.planFixed="1";
       btn.addEventListener('click', (e)=>{
-        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
-        const plan = txt.includes('Starter') ? 'Starter' : 'Pro';
-        handleCheckout(plan);
+        e.preventDefault(); e.stopImmediatePropagation();
+        const plan = txt.includes('Starter')?'Starter':'Pro';
+        handlePlan(plan);
       }, true);
     }
   });
 }
 
-// Init
 attach();
-setTimeout(attach, 800);
-setTimeout(attach, 2000);
+setTimeout(attach, 1000);
+setTimeout(attach, 2500);
 setInterval(attach, 2000);
 
 onAuthStateChanged(auth, (user)=>{
-  if (user) {
+  if(user){
     saveUser(user);
-    updateUI(user);
-    // If pending plan exists after reload
-    const p = localStorage.getItem('pendingPlan');
-    if (p) {
+    showLoggedIn(user.email, user.photoURL);
+    const pending = localStorage.getItem('pendingPlan');
+    if(pending){
       localStorage.removeItem('pendingPlan');
-      setTimeout(()=>handleCheckout(p), 1000);
+      setTimeout(()=>handlePlan(pending), 800);
     }
   } else {
-    updateUI(null);
+    showLoggedOut();
   }
 });
-
-console.log("✅ Proper auth UX loaded");
+console.log("Auth fixed loaded");
 </script>
 
 </body>

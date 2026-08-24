@@ -39,7 +39,7 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<!-- WORKING LOGIN + SIMPLE HEADER FIX -->
+<!-- AUTH - 1 FREE VID + HEADER BADGE -->
 <style>
   #userBadgeTop { position:fixed; top:12px; right:12px; z-index:9999; background:#12121a; border:1px solid rgba(168,85,247,0.3); padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; font-size:12px; color:white; }
   #userBadgeTop img { width:24px; height:24px; border-radius:999px; }
@@ -49,7 +49,6 @@ Error generating stack: `+u.message+`
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
-
 const firebaseConfig = {
   apiKey: "AIzaSyDPUpVlDnEgL6yxLCHMlF9bQsBIfI8if9Q",
   authDomain: "topic2short.firebaseapp.com",
@@ -58,134 +57,163 @@ const firebaseConfig = {
   messagingSenderId: "236479952837",
   appId: "1:236479952837:web:6cd7672dbf0489c2833dac"
 };
-
-const supabase = createClient(
-  'https://rtgbhlsfteapzzfheedt.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Z2JobHNmdGVhcHp6ZmhlZWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1ODE2OTQsImV4cCI6MjEwMzE1NzY5NH0.CZ5J2iGJUM8_igrQNEgd7mNKR0V05aywI82m9PnaYyI'
-);
-
+const supabase = createClient('https://rtgbhlsfteapzzfheedt.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Z2JobHNmdGVhcHp6ZmhlZWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1ODE2OTQsImV4cCI6MjEwMzE1NzY5NH0.CZ5J2iGJUM8_igrQNEgd7mNKR0V05aywI82m9PnaYyI');
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-
-async function saveUser(user) {
-  try {
-    await supabase.from('users').upsert({
-      id: user.uid,
-      email: user.email,
-      plan: 'free',
-      videos_used: 0,
-      videos_limit: 3
-    }, { onConflict: 'id' });
-    console.log("Saved to Supabase");
-  } catch(e){ console.error(e); }
+async function saveUser(user){
+  try{
+    await supabase.from('users').upsert({id:user.uid,email:user.email,plan:'free',videos_used:0,videos_limit:1},{onConflict:'id'});
+  }catch(e){ console.error(e); }
 }
-
-function showLoggedIn(email, photo) {
-  // Hide login buttons
+function showLoggedIn(email, photo){
   document.querySelectorAll('button').forEach(b=>{
     const t=(b.textContent||'').trim();
-    if(t==='Log in' || t==='Get Started' || t==='Sign up'){
-      b.style.display='none';
-    }
-    if(t==='Get Starter' || t==='Get Pro'){
-      // keep pricing buttons visible
-    }
+    if(t==='Log in' || t==='Get Started' || t==='Sign up') b.style.display='none';
   });
-  // Remove old badge
-  const old=document.getElementById('userBadgeTop');
-  if(old) old.remove();
-  const badge=document.createElement('div');
-  badge.id='userBadgeTop';
-  badge.innerHTML = `<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}</span><button id="doSignOut">Sign out</button>`;
+  const old=document.getElementById('userBadgeTop'); if(old) old.remove();
+  const badge=document.createElement('div'); badge.id='userBadgeTop';
+  badge.innerHTML=`<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}</span><button id="doSignOut">Sign out</button>`;
   document.body.appendChild(badge);
   document.getElementById('doSignOut').onclick=()=>{ signOut(auth); };
 }
-
-function showLoggedOut() {
+function showLoggedOut(){
   document.querySelectorAll('button').forEach(b=>{
     const t=(b.textContent||'').trim();
-    if(t==='Log in' || t==='Get Started' || t==='Sign up'){
-      b.style.display='';
-    }
-    // Rename Get Started to Sign up for clarity (only once)
-    if(t==='Get Started'){
-      b.textContent='Sign up';
-    }
+    if(t==='Log in' || t==='Get Started' || t==='Sign up'){ b.style.display=''; }
+    if(t==='Get Started') b.textContent='Sign up';
   });
-  const old=document.getElementById('userBadgeTop');
-  if(old) old.remove();
+  const old=document.getElementById('userBadgeTop'); if(old) old.remove();
 }
-
-async function doLogin(planAfter=null) {
-  try {
-    const res = await signInWithPopup(auth, provider);
+async function doLogin(planAfter=null){
+  try{
+    const res=await signInWithPopup(auth, provider);
     await saveUser(res.user);
     showLoggedIn(res.user.email, res.user.photoURL);
-    if(planAfter){
-      localStorage.setItem('pendingPlan', planAfter);
-      handlePlan(planAfter);
-    }
-  } catch(e){
-    console.error(e);
-    alert("Login error: "+e.message);
-  }
+    if(planAfter){ localStorage.setItem('pendingPlan', planAfter); handlePlan(planAfter); }
+  }catch(e){ alert("Login error: "+e.message); }
 }
-
 function handlePlan(plan){
-  const user = auth.currentUser;
-  if(!user){
-    localStorage.setItem('pendingPlan', plan);
-    alert("Please sign up first for "+plan+" plan");
-    doLogin(plan);
-    return;
-  }
+  const user=auth.currentUser;
+  if(!user){ localStorage.setItem('pendingPlan', plan); alert("Please sign up first for "+plan+" plan"); doLogin(plan); return; }
   alert(plan+" plan selected — Paystack checkout next (logged in as "+user.email+")");
 }
-
-function attach(){
+function attachAuth(){
   document.querySelectorAll('button').forEach(btn=>{
     const txt=(btn.textContent||'').trim();
-    // Auth buttons
     if((txt==='Log in' || txt==='Sign up' || txt==='Get Started') && !btn.dataset.fixed){
-      btn.dataset.fixed="1";
-      if(txt==='Get Started') btn.textContent='Sign up';
-      btn.addEventListener('click', (e)=>{
-        e.preventDefault(); e.stopImmediatePropagation();
-        doLogin();
-      }, true);
+      btn.dataset.fixed="1"; if(txt==='Get Started') btn.textContent='Sign up';
+      btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopImmediatePropagation(); doLogin(); }, true);
     }
-    // Pricing buttons
     if((txt==='Get Starter' || txt==='Get Pro') && !btn.dataset.planFixed){
       btn.dataset.planFixed="1";
-      btn.addEventListener('click', (e)=>{
-        e.preventDefault(); e.stopImmediatePropagation();
-        const plan = txt.includes('Starter')?'Starter':'Pro';
-        handlePlan(plan);
-      }, true);
+      btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopImmediatePropagation(); const plan=txt.includes('Starter')?'Starter':'Pro'; handlePlan(plan); }, true);
     }
   });
 }
-
-attach();
-setTimeout(attach, 1000);
-setTimeout(attach, 2500);
-setInterval(attach, 2000);
-
-onAuthStateChanged(auth, (user)=>{
-  if(user){
-    saveUser(user);
-    showLoggedIn(user.email, user.photoURL);
-    const pending = localStorage.getItem('pendingPlan');
-    if(pending){
-      localStorage.removeItem('pendingPlan');
-      setTimeout(()=>handlePlan(pending), 800);
-    }
-  } else {
-    showLoggedOut();
-  }
+attachAuth(); setTimeout(attachAuth,1000); setTimeout(attachAuth,2500); setInterval(attachAuth,2000);
+onAuthStateChanged(auth,(user)=>{
+  if(user){ saveUser(user); showLoggedIn(user.email,user.photoURL);
+    const pending=localStorage.getItem('pendingPlan'); if(pending){ localStorage.removeItem('pendingPlan'); setTimeout(()=>handlePlan(pending),800); }
+  } else { showLoggedOut(); }
 });
-console.log("Auth fixed loaded");
+</script>
+
+<!-- LEGAL MODALS - APPROVED VERSION -->
+<style>
+  .legal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(14px); z-index:10000; display:none; align-items:center; justify-content:center; padding:20px; }
+  .legal-overlay.open { display:flex; }
+  .legal-box { background:#12121a; border:1px solid rgba(255,255,255,0.12); border-radius:24px; max-width:720px; width:100%; max-height:85vh; overflow-y:auto; padding:32px; color:white; position:relative; }
+  .legal-box h2 { font-size:24px; font-weight:800; margin-bottom:6px; }
+  .legal-box .sub { font-size:12px; color:rgba(255,255,255,0.45); margin-bottom:18px; }
+  .legal-box h3 { font-size:15px; font-weight:600; margin-top:22px; margin-bottom:8px; color:#d8b4fe; }
+  .legal-box p, .legal-box li { font-size:14px; line-height:1.65; color:rgba(255,255,255,0.78); }
+  .legal-box ul { padding-left:18px; margin:8px 0; }
+  .legal-close { position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white; cursor:pointer; display:grid; place-items:center; }
+  .legal-contact-btn { display:inline-flex; margin-top:18px; background:#a855f7; color:white; padding:11px 20px; border-radius:999px; font-size:14px; font-weight:600; text-decoration:none; }
+</style>
+
+<div id="privacyModal" class="legal-overlay"><div class="legal-box">
+  <button class="legal-close" onclick="closeLegal('privacyModal')">✕</button>
+  <h2>Privacy Policy</h2><div class="sub">Last updated: May 13, 2026 • Topic2Short</div>
+  <p>Topic2Short turns your topic into a viral short video. Your privacy is important.</p>
+  <h3>What we collect</h3>
+  <ul>
+    <li><b>Account:</b> Email, Google profile photo, Firebase ID when you sign in with Google.</li>
+    <li><b>Usage:</b> Topic you type, style you pick, number of videos generated.</li>
+    <li><b>Payment:</b> Paystack processes your payment. We never see your card number, only that you paid.</li>
+    <li><b>Technical:</b> Browser, device, IP to prevent abuse.</li>
+  </ul>
+  <h3>How we use it</h3>
+  <ul>
+    <li>To give you 1 free video, then track paid usage.</li>
+    <li>To save your account in Supabase (Firebase + Supabase).</li>
+    <li>To send receipts via Paystack.</li>
+    <li>We DO NOT sell your data. Ever.</li>
+  </ul>
+  <h3>Storage</h3>
+  <p>Data stored in Firebase (auth) and Supabase (users table). Videos generated on-demand via Render API.</p>
+  <h3>Your rights</h3>
+  <p>Email jakebenoit08@gmail.com to delete your account and all data anytime. Compliant with Ghana Data Protection Act.</p>
+  <h3>Contact</h3>
+  <p>jakebenoit08@gmail.com</p>
+</div></div>
+
+<div id="termsModal" class="legal-overlay"><div class="legal-box">
+  <button class="legal-close" onclick="closeLegal('termsModal')">✕</button>
+  <h2>Terms of Service</h2><div class="sub">Effective: May 13, 2026 • Topic2Short</div>
+  <h3>1. Service</h3>
+  <p>Topic2Short provides AI-generated short videos with voiceover and captions for TikTok / Reels / Shorts. You must be 13+.</p>
+  <h3>2. Free & Paid Plans</h3>
+  <p><b>1 free video only.</b> After that, you must purchase a plan via Paystack (GHS) to continue generating.</p>
+  <h3>3. Payments & Refund — Smart Rule</h3>
+  <ul>
+    <li>Payments processed securely by Paystack.</li>
+    <li><b>No refunds after 2 days</b> from payment.</li>
+    <li><b>No refunds if you generate even 1 video</b> on a paid plan. This prevents abuse where someone generates then asks for refund. This is final.</li>
+  </ul>
+  <h3>4. Not Allowed — Topics</h3>
+  <ul>
+    <li>No sexualized content, no nudity, no porn, no sexual content involving minors — zero tolerance.</li>
+    <li>No hate speech, harassment, illegal content, or non-consensual imagery.</li>
+    <li>If you break this, we can ban your account with no refund.</li>
+  </ul>
+  <h3>5. Ownership</h3>
+  <p>You own the topic you provide. You own the output video and can post it commercially. We own the platform.</p>
+  <h3>6. Disclaimer</h3>
+  <p>AI may make mistakes. Service is provided "as is". We are not responsible for views or viral performance.</p>
+  <h3>7. Contact</h3>
+  <p>Questions? jakebenoit08@gmail.com</p>
+</div></div>
+
+<div id="contactModal" class="legal-overlay"><div class="legal-box">
+  <button class="legal-close" onclick="closeLegal('contactModal')">✕</button>
+  <h2>Contact Us</h2><div class="sub">We reply within 24 hours</div>
+  <p>Built by Jake — indie maker. Love feedback, bugs, ideas.</p>
+  <h3>Email</h3>
+  <p><b>jakebenoit08@gmail.com</b></p>
+  <h3>When you email, include:</h3>
+  <ul>
+    <li>Bug: topic you typed + style + screenshot</li>
+    <li>Billing: email you used + Paystack reference</li>
+    <li>Idea: what workflow you need</li>
+  </ul>
+  <a class="legal-contact-btn" href="mailto:jakebenoit08@gmail.com?subject=Topic2Short%20Support">Email Us</a>
+  <p style="margin-top:20px; font-size:12px; color:rgba(255,255,255,0.4);">1 free video, then pay. No sexualized content. Refunds: 2-day window, no refund after 1 video generated.</p>
+</div></div>
+
+<script>
+function openLegal(id){ document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeLegal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+document.addEventListener('click', (e)=>{
+  const t = (e.target.textContent||'').trim();
+  if(t==='Privacy'){ e.preventDefault(); openLegal('privacyModal'); }
+  if(t==='Terms'){ e.preventDefault(); openLegal('termsModal'); }
+  if(t==='Contact'){ e.preventDefault(); openLegal('contactModal'); }
+}, true);
+document.querySelectorAll('.legal-overlay').forEach(ov=>{
+  ov.addEventListener('click', (e)=>{ if(e.target===ov) closeLegal(ov.id); });
+});
 </script>
 
 </body>

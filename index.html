@@ -38,5 +38,44 @@ Error generating stack: `+u.message+`
   setInterval(ping, 5*60*1000);
 })();
 </script>
+
+<!-- SUPABASE SAVE - does not change design - ADDED BY NYX -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
+
+const firebaseConfig = {
+  apiKey: "REPLACE_WITH_YOUR_API_KEY",
+  authDomain: "REPLACE_WITH_YOUR_AUTHDOMAIN",
+  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+  appId: "REPLACE_WITH_YOUR_APP_ID"
+};
+
+const supabase = createClient(
+  'https://rtgbhlsfteapzzfheedt.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Z2JobHNmdGVhcHp6ZmhlZWR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1ODE2OTQsImV4cCI6MjEwMzE1NzY5NH0.CZ5J2iGJUM8_igrQNEgd7mNKR0V05aywI82m9PnaYyI'
+);
+
+try {
+  const app2 = initializeApp(firebaseConfig, "saver");
+  const auth2 = getAuth(app2);
+  onAuthStateChanged(auth2, async (user) => {
+    if (user) {
+      console.log("Saving to Supabase:", user.email);
+      const { error } = await supabase.from('users').upsert({
+        id: user.uid,
+        email: user.email,
+        plan: 'free',
+        daily_transcriptions: 0,
+        last_reset: new Date().toISOString().split('T')[0]
+      }, { onConflict: 'id' });
+      if (error) console.error("Supabase error:", error);
+      else console.log("✅ Saved to Supabase:", user.email);
+    }
+  });
+} catch(e){ console.log("Firebase saver init error, maybe config not replaced yet:", e); }
+</script>
+
 </body>
 </html>

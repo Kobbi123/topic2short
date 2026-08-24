@@ -39,10 +39,18 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<!-- FINAL V3 - matches your table columns - ADHD friendly one step -->
+<!-- PRO AUTH UX - proper header, signup, pricing auth flow + Paystack ready -->
+<style>
+  #customAuthArea { display:flex; align-items:center; gap:10px; }
+  #customAuthArea img { width:32px; height:32px; border-radius:999px; border:2px solid #a855f7; }
+  #customAuthArea .email { font-size:12px; color:#a855f7; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #signOutBtn { font-size:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); padding:6px 12px; border-radius:999px; cursor:pointer; color:white; }
+  #signOutBtn:hover { background:rgba(255,255,255,0.12); }
+  .hidden-auth { display:none !important; }
+</style>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
 
 const firebaseConfig = {
@@ -62,47 +70,182 @@ const supabase = createClient(
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+let currentUser = null;
+let pendingPlan = localStorage.getItem('pendingPlan');
 
 async function saveUser(user) {
-  console.log("Saving:", user.email);
-  const { error } = await supabase.from('users').upsert({
+  await supabase.from('users').upsert({
     id: user.uid,
     email: user.email,
     plan: 'free',
     videos_used: 0,
     videos_limit: 3
   }, { onConflict: 'id' });
-  if (error) {
-    console.error("Save failed:", error);
-    alert("Supabase save failed: " + error.message);
-  } else {
-    console.log("✅ Saved!");
-  }
 }
 
-async function doLogin() {
+async function doLogin(afterLoginPlan=null) {
   try {
     const result = await signInWithPopup(auth, provider);
     await saveUser(result.user);
-    alert("Welcome " + result.user.email + " ✅ Now check Supabase!");
+    currentUser = result.user;
+    if (afterLoginPlan) {
+      localStorage.setItem('pendingPlan', afterLoginPlan);
+      pendingPlan = afterLoginPlan;
+    }
+    updateUI(result.user);
+    if (pendingPlan) {
+      const plan = pendingPlan;
+      localStorage.removeItem('pendingPlan');
+      pendingPlan = null;
+      setTimeout(() => handleCheckout(plan), 500);
+    }
   } catch(e) {
-    alert("Login error: " + e.message);
+    console.error(e);
+    if (!e.message.includes('closed')) alert("Login failed: " + e.message);
+  }
+}
+
+function doLogout() {
+  signOut(auth).then(() => {
+    currentUser = null;
+    updateUI(null);
+    localStorage.removeItem('pendingPlan');
+  });
+}
+
+function handleCheckout(plan) {
+  if (!currentUser) {
+    // Not logged in -> login first, then checkout
+    localStorage.setItem('pendingPlan', plan);
+    pendingPlan = plan;
+    alert("Please sign up / log in first to continue to payment for " + plan);
+    doLogin(plan);
+    return;
+  }
+  // Logged in -> Paystack flow (for now toast, will add real Paystack next)
+  const toast = document.createElement('div');
+  toast.textContent = plan + " plan selected — Paystack checkout coming next (you are logged in as " + currentUser.email + ")";
+  toast.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:white;color:black;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:500;box-shadow:0 10px 40px rgba(0,0,0,0.3);z-index:9999;";
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(), 4000);
+  // TODO: Replace with real Paystack call:
+  // PaystackPop.newTransaction({key:'YOUR_PUBLIC_KEY', email: currentUser.email, amount: plan==='Pro'?5000*100:2000*100, onSuccess: ...})
+  console.log("Checkout for", plan, "user", currentUser.email);
+}
+
+function updateUI(user) {
+  currentUser = user;
+  // Find header containers
+  const desktopAuth = document.querySelector('header div.hidden.md\:flex.items-center.gap-3');
+  const mobileAuth = document.querySelector('header div.flex.gap-3.pt-2');
+  
+  // Remove old custom area if exists
+  document.querySelectorAll('#customAuthArea').forEach(el=>el.remove());
+
+  if (user) {
+    // Hide original login buttons
+    document.querySelectorAll('button').forEach(btn=>{
+      const t = (btn.textContent||'').trim();
+      if (t==='Log in' || t==='Get Started' || t==='Sign up') {
+        // hide but keep for React to not crash
+        btn.style.display='none';
+        btn.classList.add('hidden-auth');
+      }
+    });
+    // Create custom logged in UI in desktop header
+    if (desktopAuth) {
+      desktopAuth.style.display='none';
+      const area = document.createElement('div');
+      area.id='customAuthArea';
+      area.innerHTML = `
+        <img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.email)}" alt="avatar" />
+        <span class="email">${user.email}</span>
+        <button id="signOutBtn">Sign out</button>
+      `;
+      desktopAuth.parentNode.appendChild(area);
+      area.querySelector('#signOutBtn').addEventListener('click', doLogout);
+    }
+    // Mobile menu
+    if (mobileAuth) {
+      mobileAuth.style.display='none';
+      const mArea = document.createElement('div');
+      mArea.id='customAuthArea';
+      mArea.style.cssText='flex-direction:column;align-items:flex-start;gap:8px;padding-top:8px;';
+      mArea.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="${user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.email)}" />
+          <span class="email">${user.email}</span>
+        </div>
+        <button id="signOutBtn" style="width:100%;">Sign out</button>
+      `;
+      mobileAuth.parentNode.appendChild(mArea);
+      mArea.querySelector('#signOutBtn').addEventListener('click', doLogout);
+    }
+  } else {
+    // Logged out -> show login buttons and rename Get Started to Sign up
+    if (desktopAuth) desktopAuth.style.display='';
+    if (mobileAuth) mobileAuth.style.display='';
+    document.querySelectorAll('button').forEach(btn=>{
+      const t = (btn.textContent||'').trim();
+      if (t==='Get Started') btn.textContent='Sign up';
+      if (t==='Log in' || t==='Get Started' || t==='Sign up') {
+        btn.style.display='';
+        btn.classList.remove('hidden-auth');
+      }
+    });
   }
 }
 
 function attach() {
-  document.querySelectorAll('button, a').forEach(btn => {
-    const txt = (btn.textContent || '').trim();
-    if ((txt === 'Log in' || txt.includes('Get Started')) && !btn.dataset.fixed) {
-      btn.dataset.fixed = "true";
-      btn.addEventListener('click', (e) => {
-        e.preventDefault(); e.stopImmediatePropagation(); doLogin();
+  // Fix login/signup buttons
+  document.querySelectorAll('button').forEach(btn=>{
+    const txt = (btn.textContent||'').trim();
+    if ((txt==='Log in' || txt==='Sign up' || txt==='Get Started') && !btn.dataset.authFixed) {
+      btn.dataset.authFixed='true';
+      // Rename Get Started to Sign up when logged out
+      if (txt==='Get Started' && !currentUser) btn.textContent='Sign up';
+      btn.addEventListener('click', (e)=>{
+        // Only handle auth buttons, not pricing
+        if (btn.textContent.includes('Starter') || btn.textContent.includes('Pro')) return;
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+        if (currentUser) return;
+        doLogin();
+      }, true);
+    }
+    // Pricing buttons
+    if ((txt==='Get Starter' || txt==='Get Pro') && !btn.dataset.planFixed) {
+      btn.dataset.planFixed='true';
+      btn.addEventListener('click', (e)=>{
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+        const plan = txt.includes('Starter') ? 'Starter' : 'Pro';
+        handleCheckout(plan);
       }, true);
     }
   });
 }
-attach(); setTimeout(attach, 1000); setTimeout(attach, 3000);
-onAuthStateChanged(auth, (u) => { if(u) saveUser(u); });
+
+// Init
+attach();
+setTimeout(attach, 800);
+setTimeout(attach, 2000);
+setInterval(attach, 2000);
+
+onAuthStateChanged(auth, (user)=>{
+  if (user) {
+    saveUser(user);
+    updateUI(user);
+    // If pending plan exists after reload
+    const p = localStorage.getItem('pendingPlan');
+    if (p) {
+      localStorage.removeItem('pendingPlan');
+      setTimeout(()=>handleCheckout(p), 1000);
+    }
+  } else {
+    updateUI(null);
+  }
+});
+
+console.log("✅ Proper auth UX loaded");
 </script>
 
 </body>

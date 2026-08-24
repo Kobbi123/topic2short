@@ -39,17 +39,19 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<!-- SUPABASE SAVE - does not change design - ADDED BY NYX -->
+<!-- SUPABASE SAVE - FINAL - does not change design -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
 
 const firebaseConfig = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_AUTHDOMAIN",
-  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID"
+  apiKey: "AIzaSyDPUpVlDnEgL6yxLCHMlF9bQsBIfI8if9Q",
+  authDomain: "topic2short.firebaseapp.com",
+  projectId: "topic2short",
+  storageBucket: "topic2short.firebasestorage.app",
+  messagingSenderId: "236479952837",
+  appId: "1:236479952837:web:6cd7672dbf0489c2833dac"
 };
 
 const supabase = createClient(
@@ -58,12 +60,15 @@ const supabase = createClient(
 );
 
 try {
-  const app2 = initializeApp(firebaseConfig, "saver");
+  // Use different name to avoid conflict with your main app
+  const app2 = initializeApp(firebaseConfig, "supabaseSaver");
   const auth2 = getAuth(app2);
+  console.log("Supabase saver initialized");
+
   onAuthStateChanged(auth2, async (user) => {
     if (user) {
-      console.log("Saving to Supabase:", user.email);
-      const { error } = await supabase.from('users').upsert({
+      console.log("User logged in, saving to Supabase:", user.email);
+      const { data, error } = await supabase.from('users').upsert({
         id: user.uid,
         email: user.email,
         plan: 'free',
@@ -71,10 +76,14 @@ try {
         last_reset: new Date().toISOString().split('T')[0]
       }, { onConflict: 'id' });
       if (error) console.error("Supabase error:", error);
-      else console.log("✅ Saved to Supabase:", user.email);
+      else console.log("✅ Saved to Supabase:", user.email, data);
+    } else {
+      console.log("No user logged in");
     }
   });
-} catch(e){ console.log("Firebase saver init error, maybe config not replaced yet:", e); }
+} catch(e){ 
+  console.error("Saver init error:", e); 
+}
 </script>
 
 </body>

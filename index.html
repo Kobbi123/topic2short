@@ -39,10 +39,10 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<!-- FINAL FIX - Log in button now works + Supabase save -->
+<!-- FINAL V3 - matches your table columns - ADHD friendly one step -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.43.4";
 
 const firebaseConfig = {
@@ -64,72 +64,45 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
 async function saveUser(user) {
+  console.log("Saving:", user.email);
   const { error } = await supabase.from('users').upsert({
     id: user.uid,
     email: user.email,
     plan: 'free',
-    daily_transcriptions: 0,
-    last_reset: new Date().toISOString().split('T')[0]
+    videos_used: 0,
+    videos_limit: 3
   }, { onConflict: 'id' });
-  if (error) console.error(error);
-  else console.log("✅ Saved to Supabase", user.email);
+  if (error) {
+    console.error("Save failed:", error);
+    alert("Supabase save failed: " + error.message);
+  } else {
+    console.log("✅ Saved!");
+  }
 }
 
 async function doLogin() {
   try {
-    console.log("Logging in...");
     const result = await signInWithPopup(auth, provider);
     await saveUser(result.user);
-    alert("Welcome " + result.user.email + " ✅ Saved to Supabase!");
-    location.reload();
+    alert("Welcome " + result.user.email + " ✅ Now check Supabase!");
   } catch(e) {
-    console.error(e);
     alert("Login error: " + e.message);
   }
 }
 
 function attach() {
-  const buttons = document.querySelectorAll('button, a');
-  buttons.forEach(btn => {
+  document.querySelectorAll('button, a').forEach(btn => {
     const txt = (btn.textContent || '').trim();
-    if (txt === 'Log in' || txt === 'Get Started' || txt.includes('Get Started')) {
-      // Remove old scroll behavior by cloning
-      if (!btn.dataset.loginFixed) {
-        btn.dataset.loginFixed = "true";
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          doLogin();
-        }, true);
-        console.log("Fixed button:", txt);
-      }
+    if ((txt === 'Log in' || txt.includes('Get Started')) && !btn.dataset.fixed) {
+      btn.dataset.fixed = "true";
+      btn.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopImmediatePropagation(); doLogin();
+      }, true);
     }
   });
 }
-
-// Attach now and after delay (React renders late)
-attach();
-setTimeout(attach, 1000);
-setTimeout(attach, 3000);
-setInterval(attach, 2000);
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    console.log("User already logged in:", user.email);
-    saveUser(user);
-    // Show email in header if possible
-    const header = document.querySelector('header');
-    if (header && !document.getElementById('userBadge')) {
-      const badge = document.createElement('div');
-      badge.id = 'userBadge';
-      badge.textContent = user.email + ' ✅';
-      badge.style.cssText = 'font-size:11px;color:#a855f7;background:rgba(168,85,247,0.1);padding:4px 8px;border-radius:999px;margin-left:8px;';
-      header.appendChild(badge);
-    }
-  }
-});
-
-console.log("Login fix loaded ✅");
+attach(); setTimeout(attach, 1000); setTimeout(attach, 3000);
+onAuthStateChanged(auth, (u) => { if(u) saveUser(u); });
 </script>
 
 </body>

@@ -28,5 +28,15 @@ Error generating stack: `+u.message+`
 </script>
   <script>(function(){function m(a){var h=a.getAttribute("href");if(!h)return;try{var u=new URL(h,document.baseURI);if((u.protocol==="http:"||u.protocol==="https:")&&u.host!==location.host){a.target="_blank";a.rel="noopener noreferrer";}}catch(e){}}function s(){document.querySelectorAll("a[href]").forEach(m);}if(document.readyState!=="loading"){s();}else{document.addEventListener("DOMContentLoaded",s);}document.addEventListener("click",function(e){var a=e.target&&e.target.closest&&e.target.closest("a[href]");if(a){m(a);}},true);})();</script>
   
+
+<script>
+// Keep Render API alive - double protection (does not change UI)
+(function(){
+  const API_URL = "https://topic2short-api.onrender.com";
+  function ping(){ fetch(API_URL + "/").catch(()=>{}); }
+  ping();
+  setInterval(ping, 5*60*1000);
+})();
+</script>
 </body>
 </html>

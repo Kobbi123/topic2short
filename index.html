@@ -39,7 +39,9 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<!-- AUTH - 1 FREE VID + HEADER BADGE -->
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
+<!-- WORKING LOGIN + HEADER -->
 <style>
   #userBadgeTop { position:fixed; top:12px; right:12px; z-index:9999; background:#12121a; border:1px solid rgba(168,85,247,0.3); padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; font-size:12px; color:white; }
   #userBadgeTop img { width:24px; height:24px; border-radius:999px; }
@@ -63,8 +65,8 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 async function saveUser(user){
   try{
-    await supabase.from('users').upsert({id:user.uid,email:user.email,plan:'free',videos_used:0,videos_limit:1},{onConflict:'id'});
-  }catch(e){ console.error(e); }
+    await supabase.from('users').upsert({id:user.uid,email:user.email,plan:'free',videos_used:0,videos_limit:3},{onConflict:'id'});
+  }catch(e){}
 }
 function showLoggedIn(email, photo){
   document.querySelectorAll('button').forEach(b=>{
@@ -96,7 +98,25 @@ async function doLogin(planAfter=null){
 function handlePlan(plan){
   const user=auth.currentUser;
   if(!user){ localStorage.setItem('pendingPlan', plan); alert("Please sign up first for "+plan+" plan"); doLogin(plan); return; }
-  alert(plan+" plan selected — Paystack checkout next (logged in as "+user.email+")");
+  const amountUSD = plan.toLowerCase().includes('starter') ? 20 : 50;
+  const paystackKey = "pk_live_38596382e8613bd3ecc9afa61fb150f41927d8fd"; // LIVE - your key
+  // To test with fake card, change to: pk_test_ca7c201ab2243a8944b7ac6531882e11424c426d
+  if(!window.PaystackPop){ alert("Paystack loading... please wait 2 secs and try again"); return; }
+  const handler = PaystackPop.setup({
+    key: paystackKey,
+    email: user.email,
+    amount: amountUSD * 100,
+    currency: "USD",
+    ref: ""+Math.floor((Math.random()*1000000000)+1),
+    callback: function(response){
+      alert("✅ Payment successful! Ref: "+response.reference+" - Your "+plan+" plan is now active!");
+      localStorage.setItem('paidPlan', plan.toLowerCase());
+      localStorage.setItem('paystackRef', response.reference);
+      try{ supabase.from('users').update({plan: plan.toLowerCase()}).eq('id', user.uid).then(function(){}); }catch(e){}
+    },
+    onClose: function(){ console.log("Paystack checkout closed"); }
+  });
+  handler.openIframe();
 }
 function attachAuth(){
   document.querySelectorAll('button').forEach(btn=>{
@@ -119,87 +139,81 @@ onAuthStateChanged(auth,(user)=>{
 });
 </script>
 
-<!-- LEGAL MODALS - APPROVED VERSION -->
+
+<!-- LEGAL MODALS - Privacy, Terms, Contact -->
 <style>
-  .legal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); backdrop-filter:blur(14px); z-index:10000; display:none; align-items:center; justify-content:center; padding:20px; }
+  .legal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(12px); z-index:10000; display:none; align-items:center; justify-content:center; padding:20px; }
   .legal-overlay.open { display:flex; }
-  .legal-box { background:#12121a; border:1px solid rgba(255,255,255,0.12); border-radius:24px; max-width:720px; width:100%; max-height:85vh; overflow-y:auto; padding:32px; color:white; position:relative; }
-  .legal-box h2 { font-size:24px; font-weight:800; margin-bottom:6px; }
-  .legal-box .sub { font-size:12px; color:rgba(255,255,255,0.45); margin-bottom:18px; }
-  .legal-box h3 { font-size:15px; font-weight:600; margin-top:22px; margin-bottom:8px; color:#d8b4fe; }
-  .legal-box p, .legal-box li { font-size:14px; line-height:1.65; color:rgba(255,255,255,0.78); }
+  .legal-box { background:#12121a; border:1px solid rgba(255,255,255,0.1); border-radius:24px; max-width:720px; width:100%; max-height:85vh; overflow-y:auto; padding:32px; color:white; position:relative; }
+  .legal-box h2 { font-size:24px; font-weight:800; margin-bottom:8px; }
+  .legal-box .sub { font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:20px; }
+  .legal-box h3 { font-size:16px; font-weight:600; margin-top:20px; margin-bottom:8px; color:#d8b4fe; }
+  .legal-box p, .legal-box li { font-size:14px; line-height:1.6; color:rgba(255,255,255,0.75); }
   .legal-box ul { padding-left:18px; margin:8px 0; }
   .legal-close { position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white; cursor:pointer; display:grid; place-items:center; }
-  .legal-contact-btn { display:inline-flex; margin-top:18px; background:#a855f7; color:white; padding:11px 20px; border-radius:999px; font-size:14px; font-weight:600; text-decoration:none; }
+  .legal-contact-btn { display:inline-flex; margin-top:16px; background:#a855f7; color:white; padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; text-decoration:none; }
 </style>
 
 <div id="privacyModal" class="legal-overlay"><div class="legal-box">
   <button class="legal-close" onclick="closeLegal('privacyModal')">✕</button>
   <h2>Privacy Policy</h2><div class="sub">Last updated: May 13, 2026 • Topic2Short</div>
-  <p>Topic2Short turns your topic into a viral short video. Your privacy is important.</p>
+  <p>Topic2Short ("we") builds AI tools to turn topics into short videos. Your privacy matters.</p>
   <h3>What we collect</h3>
   <ul>
-    <li><b>Account:</b> Email, Google profile photo, Firebase ID when you sign in with Google.</li>
-    <li><b>Usage:</b> Topic you type, style you pick, number of videos generated.</li>
-    <li><b>Payment:</b> Paystack processes your payment. We never see your card number, only that you paid.</li>
-    <li><b>Technical:</b> Browser, device, IP to prevent abuse.</li>
+    <li><b>Account:</b> Email, Google profile photo, Firebase UID via Google Sign-In.</li>
+    <li><b>Usage:</b> Topics you enter, style selected, videos generated count, plan type.</li>
+    <li><b>Technical:</b> Device, browser, IP (for abuse prevention).</li>
   </ul>
   <h3>How we use it</h3>
   <ul>
-    <li>To give you 1 free video, then track paid usage.</li>
-    <li>To save your account in Supabase (Firebase + Supabase).</li>
-    <li>To send receipts via Paystack.</li>
-    <li>We DO NOT sell your data. Ever.</li>
+    <li>To provide video generation, save your history, enforce free limits (3 videos).</li>
+    <li>To manage subscriptions via Paystack and send receipts.</li>
+    <li>To improve our AI models — we never sell your data.</li>
   </ul>
   <h3>Storage</h3>
-  <p>Data stored in Firebase (auth) and Supabase (users table). Videos generated on-demand via Render API.</p>
+  <p>Data is stored in Firebase (auth) and Supabase (users table) with Row Level Security. Videos are generated on-demand via Render API.</p>
   <h3>Your rights</h3>
-  <p>Email jakebenoit08@gmail.com to delete your account and all data anytime. Compliant with Ghana Data Protection Act.</p>
+  <p>Email us to delete your account and data anytime. Ghana Data Protection Act compliant.</p>
   <h3>Contact</h3>
-  <p>jakebenoit08@gmail.com</p>
+  <p>powerkobbi9@gmail.com</p>
 </div></div>
 
 <div id="termsModal" class="legal-overlay"><div class="legal-box">
   <button class="legal-close" onclick="closeLegal('termsModal')">✕</button>
-  <h2>Terms of Service</h2><div class="sub">Effective: May 13, 2026 • Topic2Short</div>
+  <h2>Terms of Service</h2><div class="sub">Effective: May 13, 2026</div>
   <h3>1. Service</h3>
-  <p>Topic2Short provides AI-generated short videos with voiceover and captions for TikTok / Reels / Shorts. You must be 13+.</p>
-  <h3>2. Free & Paid Plans</h3>
-  <p><b>1 free video only.</b> After that, you must purchase a plan via Paystack (GHS) to continue generating.</p>
-  <h3>3. Payments & Refund — Smart Rule</h3>
+  <p>Topic2Short provides AI-generated short videos for TikTok/Reels/Shorts. You must be 13+.</p>
+  <h3>2. Accounts</h3>
+  <p>Sign in with Google. You are responsible for your account. Free plan: 3 videos. Paid plans via Paystack unlock more.</p>
+  <h3>3. Acceptable Use</h3>
   <ul>
-    <li>Payments processed securely by Paystack.</li>
-    <li><b>No refunds after 2 days</b> from payment.</li>
-    <li><b>No refunds if you generate even 1 video</b> on a paid plan. This prevents abuse where someone generates then asks for refund. This is final.</li>
+    <li>Don't generate illegal, hateful, or non-consensual content.</li>
+    <li>You own the topic you provide; we provide AI voiceover/captions. You own the output for personal/commercial use.</li>
+    <li>No scraping or reverse engineering the API.</li>
   </ul>
-  <h3>4. Not Allowed — Topics</h3>
-  <ul>
-    <li>No sexualized content, no nudity, no porn, no sexual content involving minors — zero tolerance.</li>
-    <li>No hate speech, harassment, illegal content, or non-consensual imagery.</li>
-    <li>If you break this, we can ban your account with no refund.</li>
-  </ul>
-  <h3>5. Ownership</h3>
-  <p>You own the topic you provide. You own the output video and can post it commercially. We own the platform.</p>
-  <h3>6. Disclaimer</h3>
-  <p>AI may make mistakes. Service is provided "as is". We are not responsible for views or viral performance.</p>
-  <h3>7. Contact</h3>
-  <p>Questions? jakebenoit08@gmail.com</p>
+  <h3>4. Payments</h3>
+  <p>Payments processed by Paystack (GHS). Cancel anytime, no refunds for used credits except where required by law.</p>
+  <h3>5. Disclaimer</h3>
+  <p>AI content may have errors. Service provided "as is". We are not liable for viral performance.</p>
+  <h3>6. Contact</h3>
+  <p>Questions? powerkobbi9@gmail.com</p>
 </div></div>
 
 <div id="contactModal" class="legal-overlay"><div class="legal-box">
   <button class="legal-close" onclick="closeLegal('contactModal')">✕</button>
   <h2>Contact Us</h2><div class="sub">We reply within 24 hours</div>
-  <p>Built by Jake — indie maker. Love feedback, bugs, ideas.</p>
+  <p>Built by Kobbi — indie maker in Ghana. Love feedback!</p>
   <h3>Email</h3>
-  <p><b>jakebenoit08@gmail.com</b></p>
-  <h3>When you email, include:</h3>
+  <p>powerkobbi9@gmail.com</p>
+  <h3>What to include</h3>
   <ul>
-    <li>Bug: topic you typed + style + screenshot</li>
-    <li>Billing: email you used + Paystack reference</li>
-    <li>Idea: what workflow you need</li>
+    <li>Bug reports: topic + style + screenshot</li>
+    <li>Feature requests: what workflow you need</li>
+    <li>Billing: email used + Paystack reference</li>
   </ul>
-  <a class="legal-contact-btn" href="mailto:jakebenoit08@gmail.com?subject=Topic2Short%20Support">Email Us</a>
-  <p style="margin-top:20px; font-size:12px; color:rgba(255,255,255,0.4);">1 free video, then pay. No sexualized content. Refunds: 2-day window, no refund after 1 video generated.</p>
+  <a class="legal-contact-btn" href="mailto:powerkobbi9@gmail.com?subject=Topic2Short%20Support">Email Us</a>
+  <h3 style="margin-top:24px;">Social</h3>
+  <p>X / Twitter: @topic2short (coming soon)</p>
 </div></div>
 
 <script>

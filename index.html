@@ -580,5 +580,168 @@ window.addEventListener('load',()=>{
 });
 </script>
 
+
+<script>
+// === FINAL FIX: Keep exact original design, only add dashboard that replaces page after login ===
+(function(){
+  // Clean pricing immediately and continuously
+  function deepClean(){
+    // Walk all text nodes
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const toChange=[];
+    while(walker.nextNode()){
+      const node=walker.currentNode;
+      const t=node.nodeValue||'';
+      if(t.includes('GHS 320')) toChange.push([node, t.replace(/GHS 320/g,'$20').replace(/\s*\/\s*\$20/,' /').replace(/GHS\s*320/g,'$20')]);
+      if(t.includes('GHS 800')) toChange.push([node, t.replace(/GHS 800/g,'$50').replace(/\s*\/\s*\$50/,' /').replace(/GHS\s*800/g,'$50')]);
+      if(t.includes('Pricing that slaps')) toChange.push([node, 'Pricing']);
+      if(t.includes('• Paystack GHS')) toChange.push([node, t.replace(/•\s*Paystack GHS/g,'').replace(/Paystack GHS/g,'').replace(/Get Starter •/,'Get Starter').replace(/Get Pro •/,'Get Pro')]);
+      if(t.includes('Live key pk_live') || t.includes('Ghana-first billing') || t.includes('No USD card needed') || t.includes('Upgrade instantly') || t.includes('Supabase plan') || t.includes('Phase 1 UI only') || t.includes('How it works (Phase 1') || t.includes('No real video yet')){
+        // hide parent
+        const parent=node.parentElement;
+        if(parent) parent.style.display='none';
+      }
+    }
+    toChange.forEach(([node,newText])=>{ node.nodeValue=newText; });
+
+    // Buttons
+    document.querySelectorAll('button').forEach(b=>{
+      let txt=b.textContent||'';
+      if(txt.includes('Paystack GHS')){
+        b.textContent=txt.replace(/•\s*Paystack GHS/g,'').replace(/Paystack GHS/g,'').replace(/Get Starter •/,'Get Starter').replace(/Get Pro •/,'Get Pro').trim();
+        if(b.textContent.includes('Get Starter')) b.textContent='Get Starter';
+        if(b.textContent.includes('Get Pro')) b.textContent='Get Pro';
+      }
+      if(txt.trim()==='GHS 320') b.textContent='$20';
+      if(txt.trim()==='GHS 800') b.textContent='$50';
+    });
+    // Divs that show GHS 320/800 alone
+    document.querySelectorAll('div').forEach(d=>{
+      if(d.children.length===0){
+        const t=(d.textContent||'').trim();
+        if(t==='GHS 320') d.textContent='$20';
+        if(t==='GHS 800') d.textContent='$50';
+      }
+    });
+  }
+  setInterval(deepClean, 800);
+  setTimeout(deepClean, 200);
+
+  // Create dashboard that REPLACES page after login - same design system
+  if(!document.getElementById('t2sFinalDashboard')){
+    const dash=document.createElement('div');
+    dash.id='t2sFinalDashboard';
+    dash.style.cssText='position:fixed; inset:0; background:#0a0a0f; z-index:9999; display:none; overflow-y:auto;';
+    dash.innerHTML=`
+      <div style="position:sticky; top:0; z-index:10; backdrop-filter:blur(20px); background:rgba(10,10,15,0.8); border-bottom:1px solid rgba(255,255,255,0.06); padding:16px 24px; display:flex; align-items:center; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:8px; font-weight:bold;"><div style="width:28px; height:28px; background:#a855f7; border-radius:8px; display:grid; place-items:center;">✦</div> Topic2Short</div>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <span id="t2sDashEmail" style="font-size:13px; color:rgba(255,255,255,0.6);"></span>
+          <button onclick="document.getElementById('t2sFinalDashboard').style.display='none'; document.getElementById('root')&&(document.getElementById('root').style.display=''); document.body.style.overflow='';" style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.1); border:none; color:white; font-size:12px; cursor:pointer;">Home</button>
+          <button onclick="firebase.auth().signOut()" style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.1); border:none; color:white; font-size:12px; cursor:pointer;">Sign out</button>
+        </div>
+      </div>
+      <div style="max-width:1200px; margin:0 auto; padding:24px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+          <h1 style="font-size:28px; font-weight:800; color:white;">Projects</h1>
+          <button id="t2sNewBtn" style="background:linear-gradient(135deg,#a855f7,#9333ea); color:white; padding:10px 20px; border-radius:999px; font-weight:600; font-size:14px; border:none; cursor:pointer; box-shadow:0 0 20px rgba(168,85,247,0.3);">+ New</button>
+        </div>
+        <div id="t2sProjGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px;">
+          <div style="background:#12121a; border:1px dashed rgba(255,255,255,0.15); border-radius:20px; padding:48px; text-align:center; color:rgba(255,255,255,0.5); grid-column:1/-1;">
+            No projects yet. Click + New to create your first viral short.
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dash);
+
+    // Bottom bar and sheet - same as before but ensure they show
+    if(!document.getElementById('t2sBottomBarFinal')){
+      const bar=document.createElement('div');
+      bar.id='t2sBottomBarFinal';
+      bar.style.cssText='position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:92%; max-width:720px; background:#1a1a24; border:1px solid rgba(255,255,255,0.1); border-radius:32px; padding:14px 16px; z-index:10000; box-shadow:0 20px 60px rgba(0,0,0,0.6); display:none;';
+      bar.innerHTML=`
+        <div style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="document.getElementById('t2sSheetFinal').style.transform='translateY(0)'">
+          <div style="width:36px; height:36px; border-radius:999px; background:rgba(255,255,255,0.08); display:grid; place-items:center; color:white;">+</div>
+          <input style="flex:1; background:transparent; border:none; color:white; outline:none; font-size:16px;" placeholder="What do you want to make?" readonly />
+          <div style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.08); font-size:12px; color:rgba(255,255,255,0.7);">Image x1</div>
+          <div style="width:36px; height:36px; border-radius:999px; background:white; color:black; display:grid; place-items:center;">→</div>
+        </div>
+      `;
+      document.body.appendChild(bar);
+    }
+
+    if(!document.getElementById('t2sSheetFinal')){
+      const sheet=document.createElement('div');
+      sheet.id='t2sSheetFinal';
+      sheet.style.cssText='position:fixed; bottom:0; left:0; right:0; background:#12121a; border-top:1px solid rgba(255,255,255,0.1); border-radius:24px 24px 0 0; z-index:10001; max-height:85vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s ease; padding:20px;';
+      sheet.innerHTML=`
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div style="font-weight:700; color:white;">Create — Video | Image toggle at bottom where you type</div>
+          <button onclick="document.getElementById('t2sSheetFinal').style.transform='translateY(100%)'" style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,0.08);border:none;color:white;cursor:pointer;">✕</button>
+        </div>
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Generate as</div>
+        <div style="display:flex; background:rgba(255,255,255,0.06); border-radius:999px; padding:4px; gap:4px; margin-bottom:16px; border:1px solid rgba(255,255,255,0.08);">
+          <div id="t2sFinalVideo" style="flex:1; padding:10px; border-radius:999px; text-align:center; font-weight:600; background:white; color:black; cursor:pointer;" onclick="this.style.background='white';this.style.color='black';document.getElementById('t2sFinalImage').style.background='transparent';document.getElementById('t2sFinalImage').style.color='rgba(255,255,255,0.6)'">🎬 Video</div>
+          <div id="t2sFinalImage" style="flex:1; padding:10px; border-radius:999px; text-align:center; font-weight:600; color:rgba(255,255,255,0.6); cursor:pointer;" onclick="this.style.background='white';this.style.color='black';document.getElementById('t2sFinalVideo').style.background='transparent';document.getElementById('t2sFinalVideo').style.color='rgba(255,255,255,0.6)'">🖼️ Image</div>
+        </div>
+        <textarea id="t2sFinalPrompt" style="width:100%; background:#0a0a0f; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:14px; color:white; min-height:100px; outline:none; margin-bottom:16px;" placeholder="Describe your topic... e.g. My girlfriend cheated at her birthday"></textarea>
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Style</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;"><span style="padding:8px 14px; border-radius:999px; background:#a855f7; color:white; font-size:13px;">Auto</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">Storytime</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">Horror</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">Reddit</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">Motivation</span></div>
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Duration</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;"><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">10s</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">20s</span><span style="padding:8px 14px; border-radius:999px; background:#a855f7; color:white; font-size:13px;">30s</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">40s</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">50s</span><span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">60s</span></div>
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Aspect & Count & Type & Voice (incl. Twi)</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+          <span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">9:16</span>
+          <span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">16:9</span>
+          <span style="padding:8px 14px; border-radius:999px; background:#a855f7; color:white; font-size:13px;">x1</span>
+          <span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">Real</span>
+          <span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">Anime</span>
+          <span style="padding:8px 14px; border-radius:999px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); font-size:13px;">🇬🇭 Twi</span>
+        </div>
+        <button style="width:100%; background:linear-gradient(135deg,#a855f7,#ec4899); color:white; padding:16px; border-radius:999px; font-weight:700; border:none; cursor:pointer; box-shadow:0 0 30px rgba(168,85,247,0.4);" onclick="const p=document.getElementById('t2sFinalPrompt').value; if(p){const orig=document.querySelector('textarea'); if(orig){orig.value=p; orig.dispatchEvent(new Event('input',{bubbles:true}));} document.getElementById('t2sSheetFinal').style.transform='translateY(100%)'; window.scrollTo({top:0,behavior:'smooth'}); }">⚡ Generate Viral Short • 30s</button>
+      `;
+      document.body.appendChild(sheet);
+
+      document.getElementById('t2sNewBtn').onclick=function(){
+        document.getElementById('t2sBottomBarFinal').style.display='block';
+        document.getElementById('t2sSheetFinal').style.transform='translateY(0)';
+      };
+    }
+  }
+
+  // Hook Firebase auth to show dashboard
+  function hookAuth(){
+    if(window.firebase && firebase.auth){
+      firebase.auth().onAuthStateChanged(function(user){
+        const dash=document.getElementById('t2sFinalDashboard');
+        const root=document.getElementById('root');
+        const bottomBar=document.getElementById('t2sBottomBarFinal');
+        if(user){
+          if(dash){
+            dash.style.display='block';
+            const emailEl=document.getElementById('t2sDashEmail');
+            if(emailEl) emailEl.textContent=user.email;
+          }
+          if(root) root.style.display='none';
+          // hide original landing elements
+          document.body.style.overflow='auto';
+          if(bottomBar) bottomBar.style.display='block';
+          // hide any landing hero
+          const all = document.querySelectorAll('main, [class*="hero"], [class*="landing"]');
+        } else {
+          if(dash) dash.style.display='none';
+          if(root) root.style.display='';
+          if(bottomBar) bottomBar.style.display='none';
+        }
+      });
+    } else {
+      setTimeout(hookAuth, 500);
+    }
+  }
+  hookAuth();
+})();
+</script>
+
 </body>
 </html>

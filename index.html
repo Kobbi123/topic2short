@@ -361,38 +361,146 @@ function openCreatorFinal(prefillTopic, prefillStyle){
 function openSheetFinal(){ document.getElementById('t2sSheetFinal').style.transform='translateY(0)'; }
 function closeSheetFinal(){ document.getElementById('t2sSheetFinal').style.transform='translateY(100%)'; }
 
-function generateNowFinal(){
-  const prompt=document.getElementById('t2sMainPromptFinal').value.trim();
-  const ownScript=document.getElementById('t2sOwnScriptFinal').value.trim();
+const API_URL = "https://topic2short-api.onrender.com";
+async function generateNowFinal(){
+  const mainPromptEl=document.getElementById('t2sMainPromptFinal');
+  const bottomInputEl=document.getElementById('t2sBottomInput');
+  const ownScriptEl=document.getElementById('t2sOwnScriptFinal');
+  const prompt=((mainPromptEl && mainPromptEl.value) || (bottomInputEl && bottomInputEl.value) || '').trim();
+  const ownScript=(ownScriptEl && ownScriptEl.value || '').trim();
   if(!prompt && !ownScript){ alert('Type what you want to make first'); return; }
+
+  const user=auth.currentUser;
+  if(!user){ alert('Please log in first'); return; }
+
   const stepsDiv=document.getElementById('t2sStepsFinal');
   stepsDiv.style.display='block';
-  stepsDiv.innerHTML='<div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:8px;">Transparent AI trace • Like you see me think</div>';
-  const steps=[
-    'Analyzing your topic...',
-    'Writing script (style: '+t2sSelections.style+')...',
-    'Finding '+(t2sGenType==='video'?'clips':'images')+' matching...',
-    'Generating voice ('+t2sSelections.voice+')...',
-    'Adding viral captions...',
-    'Ready to preview'
-  ];
-  let i=0;
-  function nextStep(){
-    if(i>=steps.length){
-      stepsDiv.innerHTML+='<div style="margin-top:12px;color:#a855f7;font-weight:600;">✓ Ready — check your project in the grid.</div>';
-      return;
-    }
+  stepsDiv.innerHTML='<div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:8px;">Transparent AI trace • Live backend generation</div>';
+
+  const topic=prompt;
+  const scriptType=typeof t2sScriptMode !== 'undefined' ? t2sScriptMode : 'ai';
+  const modelEl=document.getElementById('t2sModelSelect');
+  const payload={
+    topic:topic,
+    style:t2sSelections.style,
+    video_type:t2sSelections.type,
+    duration:parseInt(t2sSelections.duration,10),
+    voice:t2sSelections.voice,
+    script_type:scriptType,
+    own_script:ownScript,
+    email:user.email,
+    owner_email:user.email,
+    model:modelEl ? modelEl.value : ''
+  };
+
+  function addLiveMessage(msg, progress){
+    if(!msg) return;
     const div=document.createElement('div');
     div.style.cssText='padding:6px 0;font-size:13px;display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.8);';
-    div.innerHTML='<span style="width:16px;height:16px;border:2px solid #a855f7;border-top-color:transparent;border-radius:50%;display:inline-block;animation:t2sSpin 1s linear infinite;"></span> '+steps[i];
+    const progressText=(typeof progress==='number' || (typeof progress==='string' && progress.trim()!=='') ) ? ' <span style="color:#a855f7;">'+progress+'%</span>' : '';
+    div.innerHTML='<span style="width:16px;height:16px;border:2px solid #a855f7;border-top-color:transparent;border-radius:50%;display:inline-block;animation:t2sSpin 1s linear infinite;"></span> '+String(msg)+progressText;
     stepsDiv.appendChild(div);
-    setTimeout(()=>{
-      div.innerHTML='✓ '+steps[i];
-      div.style.color='#22c55e';
-      i++; setTimeout(nextStep,600);
-    },800);
+    stepsDiv.scrollTop=stepsDiv.scrollHeight;
+    return div;
   }
-  nextStep();
+
+  function showVideo(videoUrl){
+    if(!videoUrl) return;
+    const wrap=document.createElement('div');
+    wrap.style.cssText='margin-top:16px;';
+    wrap.innerHTML='<video src="'+String(videoUrl).replace(/"/g,'&quot;')+'" controls playsinline style="width:100%;max-height:520px;border-radius:14px;background:#000;display:block;"></video>'+
+      '<a href="'+String(videoUrl).replace(/"/g,'&quot;')+'" target="_blank" rel="noopener" style="display:inline-block;margin-top:10px;color:#c084fc;font-weight:600;text-decoration:none;">Open generated video ↗</a>';
+    stepsDiv.appendChild(wrap);
+    stepsDiv.scrollTop=stepsDiv.scrollHeight;
+  }
+
+  try{
+    const response=await fetch(API_URL + '/generate-stream',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+
+    if(!response.ok){
+      let detail='HTTP '+response.status;
+      try{ detail=(await response.text()).slice(0,300) || detail; }catch(e){}
+      throw new Error(detail);
+    }
+    if(!response.body) throw new Error('Streaming response is not supported by this browser.');
+
+    const reader=response.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer='';
+    let videoShown=false;
+
+    while(true){
+      const result=await reader.read();
+      if(result.done) break;
+      buffer+=decoder.decode(result.value,{stream:true});
+      const events=buffer.split(/\n\n/);
+      buffer=events.pop() || '';
+
+      for(const event of events){
+        const lines=event.split(/\r?\n/);
+        const dataLines=lines.filter(line=>line.indexOf('data:')===0).map(line=>line.slice(5).trim());
+        if(!dataLines.length) continue;
+        const raw=dataLines.join('\n');
+        if(raw==='[DONE]') continue;
+
+        let data;
+        try{ data=JSON.parse(raw); }
+        catch(e){ continue; }
+
+        if(data.msg){
+          const msgDiv=addLiveMessage(data.msg,data.progress);
+          if(msgDiv){
+            msgDiv.dataset.progress=data.progress == null ? '' : data.progress;
+          }
+        }
+        if(data.progress != null){
+          const pct=parseInt(data.progress,10);
+          if(!Number.isNaN(pct)){
+            stepsDiv.setAttribute('data-progress',String(pct));
+          }
+        }
+        if(data.video_url && !videoShown){
+          videoShown=true;
+          showVideo(data.video_url);
+        }
+        if(data.error){
+          throw new Error(String(data.error));
+        }
+      }
+    }
+
+    if(buffer.trim()){
+      const lines=buffer.split(/\r?\n/);
+      const dataLines=lines.filter(line=>line.indexOf('data:')===0).map(line=>line.slice(5).trim());
+      if(dataLines.length){
+        try{
+          const data=JSON.parse(dataLines.join('\n'));
+          if(data.msg) addLiveMessage(data.msg,data.progress);
+          if(data.video_url && !videoShown) showVideo(data.video_url);
+          if(data.error) throw new Error(String(data.error));
+        }catch(e){
+          if(e && e.message && e.message!=='Unexpected end of JSON input') throw e;
+        }
+      }
+    }
+
+    if(!videoShown){
+      const done=document.createElement('div');
+      done.style.cssText='margin-top:12px;color:#a855f7;font-weight:600;';
+      done.textContent='✓ Generation finished. No video URL was returned by the backend.';
+      stepsDiv.appendChild(done);
+    }
+  }catch(error){
+    const err=document.createElement('div');
+    err.style.cssText='margin-top:12px;color:#ef4444;font-weight:600;line-height:1.5;';
+    err.innerHTML='❌ Fetch failed: '+String(error && error.message ? error.message : error)+'<br><span style="color:rgba(255,255,255,0.6);font-weight:400;">Render may be asleep. Wait about 40 seconds, then retry.</span>';
+    stepsDiv.appendChild(err);
+    stepsDiv.scrollTop=stepsDiv.scrollHeight;
+  }
 }
 
 function attachAuth(){

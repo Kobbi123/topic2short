@@ -98,15 +98,15 @@ async function doLogin(planAfter=null){
 function handlePlan(plan){
   const user=auth.currentUser;
   if(!user){ localStorage.setItem('pendingPlan', plan); alert("Please sign up first for "+plan+" plan"); doLogin(plan); return; }
-  const amountUSD = plan.toLowerCase().includes('starter') ? 20 : 50;
+  const amountGHS = plan.toLowerCase().includes('starter') ? 320 : 800; // $20 ~ GHS320, $50 ~ GHS800
   const paystackKey = "pk_live_38596382e8613bd3ecc9afa61fb150f41927d8fd"; // LIVE - your key
   // To test with fake card, change to: pk_test_ca7c201ab2243a8944b7ac6531882e11424c426d
   if(!window.PaystackPop){ alert("Paystack loading... please wait 2 secs and try again"); return; }
   const handler = PaystackPop.setup({
     key: paystackKey,
     email: user.email,
-    amount: amountUSD * 100,
-    currency: "USD",
+    amount: amountGHS * 100,
+    currency: "GHS",
     ref: ""+Math.floor((Math.random()*1000000000)+1),
     callback: function(response){
       alert("✅ Payment successful! Ref: "+response.reference+" - Your "+plan+" plan is now active!");

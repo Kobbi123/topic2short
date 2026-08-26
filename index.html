@@ -39,12 +39,15 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
+<script src="https://js.paystack.co/v1/inline.js"></script>
+
 <!-- WORKING LOGIN + HEADER -->
 <style>
   #userBadgeTop { position:fixed; top:12px; right:12px; z-index:9999; background:#12121a; border:1px solid rgba(168,85,247,0.3); padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; font-size:12px; color:white; }
   #userBadgeTop img { width:24px; height:24px; border-radius:999px; }
   #userBadgeTop button { background:rgba(255,255,255,0.1); border:0; padding:4px 10px; border-radius:999px; color:white; font-size:11px; cursor:pointer; }
 </style>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -61,6 +64,7 @@ const supabase = createClient('https://rtgbhlsfteapzzfheedt.supabase.co','eyJhbG
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+
 const OWNER_EMAIL = "powerkobbi9@gmail.com";
 const OWNER_EMAILS = ["powerkobbi9@gmail.com"];
 function isOwnerEmail(email){ return email && OWNER_EMAILS.includes(email.toLowerCase()); }
@@ -74,24 +78,225 @@ async function saveUser(user){
     }
   }catch(e){ console.log("saveUser error", e); }
 }
+
+function createDashboardIfNotExists(){
+  if(document.getElementById('t2sFinalDashboard')) return;
+  const dash=document.createElement('div');
+  dash.id='t2sFinalDashboard';
+  dash.style.cssText='position:fixed; inset:0; background:#0a0a0f; z-index:9999; display:none; overflow-y:auto;';
+  dash.innerHTML=`
+    <style>
+      #t2sFinalDashboard .card-dark{background:#12121a; border:1px solid rgba(255,255,255,0.08);}
+      #t2sFinalDashboard .btn-purple{background:linear-gradient(135deg,#a855f7,#9333ea); box-shadow:0 0 20px rgba(168,85,247,0.3);}
+      #t2sFinalDashboard .chip{padding:8px 14px; border-radius:999px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7);}
+      #t2sFinalDashboard .chip.active{background:#a855f7; border-color:#a855f7; color:white;}
+      #t2sFinalDashboard .toggle-row{display:flex; background:rgba(255,255,255,0.06); border-radius:999px; padding:4px; gap:4px; border:1px solid rgba(255,255,255,0.08);}
+      #t2sFinalDashboard .toggle{flex:1; padding:10px; border-radius:999px; text-align:center; font-size:14px; font-weight:600; cursor:pointer; color:rgba(255,255,255,0.6);}
+      #t2sFinalDashboard .toggle.active{background:white; color:black;}
+    </style>
+    <div style="position:sticky; top:0; z-index:10; backdrop-filter:blur(20px); background:rgba(10,10,15,0.85); border-bottom:1px solid rgba(255,255,255,0.06); padding:14px 24px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px; font-weight:800;"><div style="width:28px; height:28px; border-radius:8px; background:#a855f7; display:grid; place-items:center;">✦</div> Topic2Short <span style="font-weight:400; color:rgba(255,255,255,0.4); margin-left:8px; font-size:13px;">Dashboard</span></div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span id="t2sDashEmail" style="font-size:13px; color:rgba(255,255,255,0.6);"></span>
+        <button id="t2sHomeBtn" style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.1); border:none; color:white; font-size:12px; cursor:pointer;">Home</button>
+        <button id="t2sSignOutBtn" style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.1); border:none; color:white; font-size:12px; cursor:pointer;">Sign out</button>
+      </div>
+    </div>
+    <div style="max-width:1200px; margin:0 auto; padding:28px 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;">
+        <h1 style="font-size:28px; font-weight:800;">Projects</h1>
+        <button id="t2sNewBtn" style="background:linear-gradient(135deg,#a855f7,#9333ea); color:white; padding:10px 20px; border-radius:999px; font-weight:600; font-size:14px; border:none; cursor:pointer; box-shadow:0 0 20px rgba(168,85,247,0.3);">+ New</button>
+      </div>
+      <div id="t2sProjGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:16px;">
+        <div style="background:#12121a; border:1px dashed rgba(255,255,255,0.15); border-radius:20px; padding:48px; text-align:center; color:rgba(255,255,255,0.5); grid-column:1/-1;">
+          No projects yet. Click + New to create your first viral short. Your topic from landing is already loaded.
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(dash);
+  
+  // Bottom bar
+  const bar=document.createElement('div');
+  bar.id='t2sBottomBarFinal';
+  bar.style.cssText='position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:92%; max-width:720px; background:#1a1a24; border:1px solid rgba(255,255,255,0.1); border-radius:32px; padding:14px 16px; z-index:10000; box-shadow:0 20px 60px rgba(0,0,0,0.6); display:none;';
+  bar.innerHTML=`
+    <div id="t2sBottomBarClick" style="display:flex; align-items:center; gap:12px; cursor:pointer;">
+      <div style="width:36px; height:36px; border-radius:999px; background:rgba(255,255,255,0.08); display:grid; place-items:center; color:white;">+</div>
+      <input id="t2sBottomInput" style="flex:1; background:transparent; border:none; color:white; outline:none; font-size:16px;" placeholder="What do you want to make?" readonly />
+      <div style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.08); font-size:12px; color:rgba(255,255,255,0.7);"><span id="t2sTypeLabel">Image</span> <span id="t2sCountLabel">x1</span></div>
+      <div style="width:36px; height:36px; border-radius:999px; background:white; color:black; display:grid; place-items:center;">→</div>
+    </div>
+  `;
+  document.body.appendChild(bar);
+
+  // Sheet
+  const sheet=document.createElement('div');
+  sheet.id='t2sSheetFinal';
+  sheet.style.cssText='position:fixed; bottom:0; left:0; right:0; background:#12121a; border-top:1px solid rgba(255,255,255,0.1); border-radius:24px 24px 0 0; z-index:10001; max-height:86vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s ease; padding:20px;';
+  sheet.innerHTML=`
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div style="font-weight:700; color:white;">Create</div>
+      <button id="t2sSheetClose" style="width:32px; height:32px; border-radius:999px; background:rgba(255,255,255,0.08); border:none; color:white; cursor:pointer;">✕</button>
+    </div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Generate as — at bottom where you type</div>
+    <div class="toggle-row" style="margin-bottom:16px;">
+      <div id="t2sFinalVideo" class="toggle active">🎬 Video</div>
+      <div id="t2sFinalImage" class="toggle">🖼️ Image</div>
+    </div>
+    <textarea id="t2sFinalPrompt" style="width:100%; background:#0a0a0f; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:14px; color:white; min-height:110px; outline:none; margin-bottom:14px;" placeholder="Describe your topic... e.g. My girlfriend cheated at her birthday"></textarea>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Reference image</div>
+    <div style="border:1px dashed rgba(255,255,255,0.2); border-radius:16px; padding:16px; text-align:center; color:rgba(255,255,255,0.4); margin-bottom:14px; background:rgba(255,255,255,0.03); cursor:pointer;" id="t2sUploadArea">📷 Upload reference<input id="t2sFileIn" type="file" hidden accept="image/*" /><div id="t2sFilePrev"></div></div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Style</div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;" id="t2sStyleChips"><div class="chip active" data-v="auto">Auto</div><div class="chip" data-v="storytime">Storytime</div><div class="chip" data-v="horror">Horror</div><div class="chip" data-v="reddit">Reddit</div><div class="chip" data-v="motivation">Motivation</div><div class="chip" data-v="fact">Fact</div></div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Duration</div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;" id="t2sDurChips"><div class="chip" data-v="10">10s</div><div class="chip" data-v="20">20s</div><div class="chip active" data-v="30">30s</div><div class="chip" data-v="40">40s</div><div class="chip" data-v="50">50s</div><div class="chip" data-v="60">60s</div></div>
+    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:rgba(255,255,255,0.4); margin-bottom:8px; font-weight:600;">Aspect & Count & Type & Voice</div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
+      <span class="chip" data-aspect="9:16">9:16</span><span class="chip active" data-aspect="16:9">16:9</span><span class="chip active" data-count="1">x1</span><span class="chip" data-count="2">x2</span><span class="chip" data-type="real">Real</span><span class="chip" data-type="anime">Anime</span><span class="chip" data-voice="tiktok-girl">TikTok Girl</span><span class="chip" data-voice="twi">🇬🇭 Twi</span>
+    </div>
+    <button id="t2sGenerateBtn" style="width:100%; background:linear-gradient(135deg,#a855f7,#ec4899); color:white; padding:16px; border-radius:999px; font-weight:700; border:none; cursor:pointer; box-shadow:0 0 30px rgba(168,85,247,0.4);">⚡ Generate Viral Short • 30s</button>
+    <div id="t2sSteps" style="display:none; margin-top:14px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.2); border-radius:16px; padding:14px; font-size:13px;"></div>
+  `;
+  document.body.appendChild(sheet);
+
+  // Wire events
+  document.getElementById('t2sHomeBtn').onclick=()=>{
+    document.getElementById('t2sFinalDashboard').style.display='none';
+    document.getElementById('root').style.display='';
+    document.getElementById('t2sBottomBarFinal').style.display='none';
+    document.getElementById('t2sSheetFinal').style.transform='translateY(100%)';
+  };
+  document.getElementById('t2sSignOutBtn').onclick=()=>{ signOut(auth); };
+  document.getElementById('t2sNewBtn').onclick=()=>{
+    document.getElementById('t2sBottomBarFinal').style.display='block';
+    document.getElementById('t2sSheetFinal').style.transform='translateY(0)';
+  };
+  document.getElementById('t2sBottomBarClick').onclick=()=>{
+    document.getElementById('t2sSheetFinal').style.transform='translateY(0)';
+  };
+  document.getElementById('t2sSheetClose').onclick=()=>{
+    document.getElementById('t2sSheetFinal').style.transform='translateY(100%)';
+  };
+  document.getElementById('t2sUploadArea').onclick=()=>{ document.getElementById('t2sFileIn').click(); };
+  document.getElementById('t2sFileIn').onchange=function(){
+    const f=this.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=e=>{ document.getElementById('t2sFilePrev').innerHTML='<img src="'+e.target.result+'" style="width:100%; border-radius:12px; margin-top:10px; max-height:180px; object-fit:cover;" />'; }; r.readAsDataURL(f);
+  };
+  document.getElementById('t2sFinalVideo').onclick=function(){ this.classList.add('active'); document.getElementById('t2sFinalImage').classList.remove('active'); document.getElementById('t2sTypeLabel').textContent='Video'; };
+  document.getElementById('t2sFinalImage').onclick=function(){ this.classList.add('active'); document.getElementById('t2sFinalVideo').classList.remove('active'); document.getElementById('t2sTypeLabel').textContent='Image'; };
+  
+  // Style chips
+  document.querySelectorAll('#t2sStyleChips .chip').forEach(c=>{
+    c.onclick=()=>{
+      document.querySelectorAll('#t2sStyleChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+    };
+  });
+  document.querySelectorAll('#t2sDurChips .chip').forEach(c=>{
+    c.onclick=()=>{
+      document.querySelectorAll('#t2sDurChips .chip').forEach(x=>x.classList.remove('active'));
+      c.classList.add('active');
+    };
+  });
+
+  document.getElementById('t2sGenerateBtn').onclick=()=>{
+    const prompt=document.getElementById('t2sFinalPrompt').value.trim();
+    const bottom=document.getElementById('t2sBottomInput').value.trim();
+    const finalPrompt=prompt||bottom;
+    if(!finalPrompt){ alert('Enter what you want to make'); return; }
+    const stepsDiv=document.getElementById('t2sSteps'); stepsDiv.style.display='block'; stepsDiv.innerHTML='<div style="color:rgba(255,255,255,0.5); font-size:11px; margin-bottom:8px;">Transparent AI trace</div>';
+    const steps=['Analyzing topic...','Writing script...','Finding clips...','Voice...','Captions...','Done'];
+    let i=0;
+    function next(){
+      if(i>=steps.length){
+        stepsDiv.innerHTML+='<div style="margin-top:10px; color:#a855f7; font-weight:600;">✓ Video ready — in Projects</div>';
+        // Add to grid
+        const grid=document.getElementById('t2sProjGrid');
+        if(grid.children[0] && grid.children[0].textContent.includes('No projects')) grid.innerHTML='';
+        const card=document.createElement('div');
+        card.style.cssText='background:#12121a; border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:16px;';
+        card.innerHTML='<div style="aspect-ratio:16/9; background:black; border-radius:12px; display:grid; place-items:center; margin-bottom:10px; font-size:12px; color:rgba(255,255,255,0.4);">Preview</div><div style="font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">'+finalPrompt.slice(0,50)+'</div><div style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:4px;">Just now</div>';
+        grid.prepend(card);
+        document.getElementById('t2sSheetFinal').style.transform='translateY(100%)';
+        return;
+      }
+      const d=document.createElement('div'); d.style.cssText='padding:5px 0; display:flex; align-items:center; gap:8px;'; d.innerHTML='<span style="width:14px; height:14px; border:2px solid #a855f7; border-top-color:transparent; border-radius:50%; display:inline-block; animation:spin 1s linear infinite;"></span> '+steps[i]; stepsDiv.appendChild(d);
+      setTimeout(()=>{d.innerHTML='✓ '+steps[i]; d.style.color='#22c55e'; i++; setTimeout(next,600);},700);
+    }
+    next();
+  };
+}
+
+function cleanPricing(){
+  // Aggressively replace $20 / $50 with $20 / $50 in React rendered DOM
+  document.querySelectorAll('*').forEach(el=>{
+    if(el.children.length===0){
+      const t=(el.textContent||'').trim();
+      if(t==='$20'){ el.textContent='$20'; }
+      if(t==='$50'){ el.textContent='$50'; }
+      if(t.includes('$20')){ el.textContent=el.textContent.replace(/$20/g,'$20'); }
+      if(t.includes('$50')){ el.textContent=el.textContent.replace(/$50/g,'$50'); }
+      if(t.includes('Pricing')){ el.textContent='Pricing'; }
+      if(t.includes('• ') || t.includes('')){
+        el.textContent=el.textContent.replace(/•\s*/g,'').replace(//g,'').trim();
+        if(el.textContent.includes('Get Starter')) el.textContent='Get Starter';
+        if(el.textContent.includes('Get Pro')) el.textContent='Get Pro';
+      }
+    }
+  });
+}
+
 function showLoggedIn(email, photo){
   document.querySelectorAll('button').forEach(b=>{
     const t=(b.textContent||'').trim();
     if(t==='Log in' || t==='Get Started' || t==='Sign up') b.style.display='none';
   });
   const old=document.getElementById('userBadgeTop'); if(old) old.remove();
-  const isOwner = typeof isOwnerEmail !== 'undefined' ? isOwnerEmail(email) : (email && email.toLowerCase() === "powerkobbi9@gmail.com");
   const badge=document.createElement('div'); badge.id='userBadgeTop';
-  badge.innerHTML=`<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}${isOwner ? ' ♛ Owner' : ''}</span><button id="doSignOut">Sign out</button>`;
+  badge.style.cssText='position:fixed; top:16px; right:16px; z-index:9998; display:flex; align-items:center; gap:8px; background:#1a1a24; border:1px solid rgba(255,255,255,0.1); border-radius:999px; padding:6px 10px 6px 6px; font-size:13px;';
+  const isOwner = typeof isOwnerEmail !== 'undefined' ? isOwnerEmail(email) : (email && email.toLowerCase() === "powerkobbi9@gmail.com");
+  badge.innerHTML=`<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" style="width:26px; height:26px; border-radius:999px;" /><span>${email}${isOwner ? ' ♛ Owner' : ''}</span><button id="doSignOut" style="padding:6px 12px; border-radius:999px; background:rgba(255,255,255,0.12); border:none; color:white; font-size:12px; cursor:pointer; margin-left:6px;">Sign out</button>`;
+  if(isOwner){
+    badge.style.border = "1px solid #a855f7";
+    badge.style.boxShadow = "0 0 20px rgba(168,85,247,0.4)";
+  }
   document.body.appendChild(badge);
   document.getElementById('doSignOut').onclick=()=>{ signOut(auth); };
-  if(isOwner){
-    document.querySelectorAll('button').forEach(b=>{
-      const t=(b.textContent||'').trim();
-      if(t==='Get Starter' || t==='Get Pro'){ b.textContent = 'Owner Unlimited ♛'; b.disabled = true; b.style.opacity='0.6'; }
-    });
+
+  // Create and show dashboard
+  createDashboardIfNotExists();
+  const dash=document.getElementById('t2sFinalDashboard');
+  const root=document.getElementById('root');
+  if(dash){
+    dash.style.display='block';
+    const emailEl=document.getElementById('t2sDashEmail');
+    if(emailEl) emailEl.textContent=email;
   }
+  if(root) root.style.display='none';
+  const bottomBar=document.getElementById('t2sBottomBarFinal');
+  if(bottomBar) bottomBar.style.display='block';
+
+  // Handle pending topic from landing
+  const pending=localStorage.getItem('pendingTopic');
+  if(pending){
+    const promptEl=document.getElementById('t2sFinalPrompt');
+    const bottomEl=document.getElementById('t2sBottomInput');
+    if(promptEl) promptEl.value=pending;
+    if(bottomEl) bottomEl.value=pending;
+    localStorage.removeItem('pendingTopic');
+    localStorage.removeItem('pendingStyle');
+    // Open creator
+    setTimeout(()=>{
+      if(bottomBar) bottomBar.style.display='block';
+      const sheet=document.getElementById('t2sSheetFinal');
+      if(sheet) sheet.style.transform='translateY(0)';
+    }, 800);
+  }
+
+  cleanPricing();
 }
+
 function showLoggedOut(){
   document.querySelectorAll('button').forEach(b=>{
     const t=(b.textContent||'').trim();
@@ -99,7 +304,16 @@ function showLoggedOut(){
     if(t==='Get Started') b.textContent='Sign up';
   });
   const old=document.getElementById('userBadgeTop'); if(old) old.remove();
+  const dash=document.getElementById('t2sFinalDashboard');
+  const root=document.getElementById('root');
+  if(dash) dash.style.display='none';
+  if(root) root.style.display='';
+  const bottomBar=document.getElementById('t2sBottomBarFinal');
+  if(bottomBar) bottomBar.style.display='none';
+  const sheet=document.getElementById('t2sSheetFinal');
+  if(sheet) sheet.style.transform='translateY(100%)';
 }
+
 async function doLogin(planAfter=null){
   try{
     const res=await signInWithPopup(auth, provider);
@@ -108,6 +322,7 @@ async function doLogin(planAfter=null){
     if(planAfter){ localStorage.setItem('pendingPlan', planAfter); handlePlan(planAfter); }
   }catch(e){ alert("Login error: "+e.message); }
 }
+
 function handlePlan(plan){
   const user=auth.currentUser;
   if(!user){ localStorage.setItem('pendingPlan', plan); alert("Please sign up first for "+plan+" plan"); doLogin(plan); return; }
@@ -116,114 +331,21 @@ function handlePlan(plan){
     alert("Owner account ♛ — unlimited, no need to pay!");
     return;
   }
-  alert(plan+" plan selected — Paystack checkout next (logged in as "+user.email+")");
-}
-function attachAuth(){
-  document.querySelectorAll('button').forEach(btn=>{
-    const txt=(btn.textContent||'').trim();
-    if((txt==='Log in' || txt==='Sign up' || txt==='Get Started') && !btn.dataset.fixed){
-      btn.dataset.fixed="1"; if(txt==='Get Started') btn.textContent='Sign up';
-      btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopImmediatePropagation(); doLogin(); }, true);
-    }
-    if((txt==='Get Starter' || txt==='Get Pro') && !btn.dataset.planFixed){
-      btn.dataset.planFixed="1";
-      btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopImmediatePropagation(); const plan=txt.includes('Starter')?'Starter':'Pro'; handlePlan(plan); }, true);
-    }
+  const amountGHS = plan.toLowerCase().includes('starter') ? 32000 : 80000;
+  const paystackKey = "pk_live_38596382e8613bd3ecc9afa61fb150f41927d8fd";
+  if(!window.PaystackPop){ alert("Paystack not loaded"); return; }
+  const handler=PaystackPop.setup({
+    key: paystackKey,
+    email: user.email,
+    amount: amountGHS * 100,
+    currency: "GHS",
+    callback: function(response){
+      supabase.from('users').update({plan: plan.toLowerCase()}).eq('id', user.uid).then(()=>{});
+      alert("Payment successful! Plan: "+plan);
+    },
+    onClose: function(){ console.log("Paystack closed"); }
   });
-}
-attachAuth(); setTimeout(attachAuth,1000); setTimeout(attachAuth,2500); setInterval(attachAuth,2000);
-onAuthStateChanged(auth,(user)=>{
-  if(user){ saveUser(user); showLoggedIn(user.email,user.photoURL);
-    const pending=localStorage.getItem('pendingPlan'); if(pending){ localStorage.removeItem('pendingPlan'); setTimeout(()=>handlePlan(pending),800); }
-  } else { showLoggedOut(); }
-});
-</script>
-
-
-<!-- LEGAL MODALS - Privacy, Terms, Contact -->
-<style>
-  .legal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(12px); z-index:10000; display:none; align-items:center; justify-content:center; padding:20px; }
-  .legal-overlay.open { display:flex; }
-  .legal-box { background:#12121a; border:1px solid rgba(255,255,255,0.1); border-radius:24px; max-width:720px; width:100%; max-height:85vh; overflow-y:auto; padding:32px; color:white; position:relative; }
-  .legal-box h2 { font-size:24px; font-weight:800; margin-bottom:8px; }
-  .legal-box .sub { font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:20px; }
-  .legal-box h3 { font-size:16px; font-weight:600; margin-top:20px; margin-bottom:8px; color:#d8b4fe; }
-  .legal-box p, .legal-box li { font-size:14px; line-height:1.6; color:rgba(255,255,255,0.75); }
-  .legal-box ul { padding-left:18px; margin:8px 0; }
-  .legal-close { position:absolute; top:16px; right:16px; width:32px; height:32px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); color:white; cursor:pointer; display:grid; place-items:center; }
-  .legal-contact-btn { display:inline-flex; margin-top:16px; background:#a855f7; color:white; padding:10px 18px; border-radius:999px; font-size:14px; font-weight:600; text-decoration:none; }
-</style>
-
-<div id="privacyModal" class="legal-overlay"><div class="legal-box">
-  <button class="legal-close" onclick="closeLegal('privacyModal')">✕</button>
-  <h2>Privacy Policy</h2><div class="sub">Last updated: May 13, 2026 • Topic2Short</div>
-  <p>Topic2Short ("we") builds AI tools to turn topics into short videos. Your privacy matters.</p>
-  <h3>What we collect</h3>
-  <ul>
-    <li><b>Account:</b> Email, Google profile photo, Firebase UID via Google Sign-In.</li>
-    <li><b>Usage:</b> Topics you enter, style selected, videos generated count, plan type.</li>
-    <li><b>Technical:</b> Device, browser, IP (for abuse prevention).</li>
-  </ul>
-  <h3>How we use it</h3>
-  <ul>
-    <li>To provide video generation, save your history, enforce free limits (3 videos).</li>
-    <li>To manage subscriptions via Paystack and send receipts.</li>
-    <li>To improve our AI models — we never sell your data.</li>
-  </ul>
-  <h3>Storage</h3>
-  <p>Data is stored in Firebase (auth) and Supabase (users table) with Row Level Security. Videos are generated on-demand via Render API.</p>
-  <h3>Your rights</h3>
-  <p>Email us to delete your account and data anytime. Ghana Data Protection Act compliant.</p>
-  <h3>Contact</h3>
-  <p>powerkobbi9@gmail.com</p>
-</div></div>
-
-<div id="termsModal" class="legal-overlay"><div class="legal-box">
-  <button class="legal-close" onclick="closeLegal('termsModal')">✕</button>
-  <h2>Terms of Service</h2><div class="sub">Effective: May 13, 2026</div>
-  <h3>1. Service</h3>
-  <p>Topic2Short provides AI-generated short videos for TikTok/Reels/Shorts. You must be 13+.</p>
-  <h3>2. Accounts</h3>
-  <p>Sign in with Google. You are responsible for your account. Free plan: 3 videos. Paid plans via Paystack unlock more.</p>
-  <h3>3. Acceptable Use</h3>
-  <ul>
-    <li>Don't generate illegal, hateful, or non-consensual content.</li>
-    <li>You own the topic you provide; we provide AI voiceover/captions. You own the output for personal/commercial use.</li>
-    <li>No scraping or reverse engineering the API.</li>
-  </ul>
-  <h3>4. Payments</h3>
-  <p>Payments processed by Paystack (GHS). Cancel anytime, no refunds for used credits except where required by law.</p>
-  <h3>5. Disclaimer</h3>
-  <p>AI content may have errors. Service provided "as is". We are not liable for viral performance.</p>
-  <h3>6. Contact</h3>
-  <p>Questions? powerkobbi9@gmail.com</p>
-</div></div>
-
-<div id="contactModal" class="legal-overlay"><div class="legal-box">
-  <button class="legal-close" onclick="closeLegal('contactModal')">✕</button>
-  <h2>Contact Us</h2><div class="sub">We reply within 24 hours</div>
-  <p>Built by Kobbi — indie maker in Ghana. Love feedback!</p>
-  <h3>Email</h3>
-  <p>powerkobbi9@gmail.com</p>
-  <h3>What to include</h3>
-  <ul>
-    <li>Bug reports: topic + style + screenshot</li>
-    <li>Feature requests: what workflow you need</li>
-    <li>Billing: email used + Paystack reference</li>
-  </ul>
-  <a class="legal-contact-btn" href="mailto:powerkobbi9@gmail.com?subject=Topic2Short%20Support">Email Us</a>
-  <h3 style="margin-top:24px;">Social</h3>
-  <p>X / Twitter: @topic2short (coming soon)</p>
-</div></div>
-
-<script>
-function openLegal(id){ document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
-function closeLegal(id){ document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
-document.addEventListener('click', (e)=>{
-  const t = (e.target.textContent||'').trim();
-  if(t==='Privacy'){ e.preventDefault(); openLegal('privacyModal'); }
-  if(t==='Terms'){ e.preventDefault(); openLegal('termsModal'); }
-  if(t==='Contact'){ e.preventDefault(); openLegal('contactModal'); }
+  handler.openIframe();
 }, true);
 document.querySelectorAll('.legal-overlay').forEach(ov=>{
   ov.addEventListener('click', (e)=>{ if(e.target===ov) closeLegal(ov.id); });
@@ -231,8 +353,162 @@ document.querySelectorAll('.legal-overlay').forEach(ov=>{
 </script>
 
 
+<!-- === TOPIC2SHORT PATCH: Exact original preserved + new features === -->
+<style>
+  /* Clean overrides - keep original design */
+  .t2s-hide { display:none !important; }
+  /* Dashboard in ORIGINAL Topic2Short style */
+  #t2sDashboard { position:fixed; inset:0; background:#0a0a0f; z-index:85; display:none; overflow-y:auto; padding-top:72px; }
+  #t2sDashboard.open { display:block; }
+  .t2s-dash-inner { max-width:1200px; margin:0 auto; padding:24px; }
+  .t2s-dash-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .t2s-dash-title { font-size:28px; font-weight:800; color:white; letter-spacing:-0.02em; }
+  .t2s-new-btn { background:linear-gradient(135deg,#a855f7,#9333ea); color:white; padding:10px 18px; border-radius:999px; font-weight:600; font-size:14px; display:inline-flex; align-items:center; gap:8px; border:none; cursor:pointer; box-shadow:0 0 20px rgba(168,85,247,0.3); }
+  .t2s-projects-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+  .t2s-proj-card { background:#12121a; border:1px solid rgba(255,255,255,0.08); border-radius:20px; overflow:hidden; aspect-ratio:16/9; position:relative; }
+  .t2s-proj-empty { background:#12121a; border:1px dashed rgba(255,255,255,0.15); border-radius:20px; padding:48px; text-align:center; color:rgba(255,255,255,0.5); }
+  /* Bottom creation bar - Topic2Short style */
+  #t2sBottomBar { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); width:92%; max-width:720px; background:#1a1a24; border:1px solid rgba(255,255,255,0.1); border-radius:32px; padding:14px 16px; z-index:90; box-shadow:0 20px 60px rgba(0,0,0,0.6); display:none; }
+  #t2sBottomBar.open { display:block; }
+  .t2s-input-row { display:flex; align-items:center; gap:12px; }
+  .t2s-plus { width:36px; height:36px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); display:grid; place-items:center; color:white; cursor:pointer; }
+  .t2s-main-input { flex:1; background:transparent; border:none; color:white; font-size:16px; outline:none; }
+  .t2s-main-input::placeholder { color:rgba(255,255,255,0.4); }
+  .t2s-type-pill { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:999px; padding:6px 12px; font-size:13px; color:rgba(255,255,255,0.7); display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .t2s-send { width:36px; height:36px; border-radius:999px; background:white; color:black; display:grid; place-items:center; cursor:pointer; }
+  /* Expanded sheet */
+  #t2sSheet { position:fixed; bottom:0; left:0; right:0; background:#12121a; border-top:1px solid rgba(255,255,255,0.1); border-radius:24px 24px 0 0; z-index:91; max-height:85vh; overflow-y:auto; transform:translateY(100%); transition:transform 0.3s ease; padding:20px; }
+  #t2sSheet.open { transform:translateY(0); }
+  .t2s-sheet-title { font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+  .t2s-chips { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .t2s-chip { padding:8px 14px; border-radius:999px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); transition:all 0.2s; }
+  .t2s-chip.active { background:#a855f7; border-color:#a855f7; color:white; box-shadow:0 0 12px rgba(168,85,247,0.4); }
+  .t2s-toggle-row { display:flex; background:rgba(255,255,255,0.06); border-radius:999px; padding:4px; gap:4px; margin-bottom:18px; border:1px solid rgba(255,255,255,0.08); }
+  .t2s-toggle { flex:1; padding:10px; border-radius:999px; text-align:center; font-size:14px; font-weight:600; cursor:pointer; color:rgba(255,255,255,0.6); }
+  .t2s-toggle.active { background:white; color:black; }
+  .t2s-upload { border:1px dashed rgba(255,255,255,0.2); border-radius:16px; padding:16px; text-align:center; cursor:pointer; color:rgba(255,255,255,0.5); margin-bottom:18px; background:rgba(255,255,255,0.03); }
+  .t2s-textarea { width:100%; background:#0a0a0f; border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:14px; color:white; font-size:14px; min-height:90px; resize:none; outline:none; margin-bottom:18px; }
+  .t2s-generate { width:100%; background:linear-gradient(135deg,#a855f7,#ec4899); color:white; padding:16px; border-radius:999px; font-weight:700; font-size:15px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 0 30px rgba(168,85,247,0.4); }
+</style>
+
+
+      <button class="t2s-new-btn" onclick="openCreator()">+ New</button>
+    </div>
+    
+    </div>
+  </div>
+</div>
+
+
+    <input class="t2s-main-input" placeholder="What do you want to make?" readonly />
+    <div class="t2s-type-pill"><span id="t2sTypeLabel">Image</span> <span id="t2sCountLabel">x1</span></div>
+    <div class="t2s-send">→</div>
+  </div>
+</div>
+
+
+    <button onclick="closeSheet()" style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,0.08);border:none;color:white;">✕</button>
+  </div>
+  
+  <div class="t2s-sheet-title">Generate as</div>
+  <div class="t2s-toggle-row">
+    <div class="t2s-toggle active" id="toggleVideo" onclick="setGenType('video')">🎬 Video</div>
+    <div class="t2s-toggle" id="toggleImage" onclick="setGenType('image')">🖼️ Image</div>
+  </div>
+
+  <div class="t2s-sheet-title">What do you want to make?</div>
+  <textarea id="t2sMainPrompt" class="t2s-textarea" placeholder="Describe your topic... e.g. My girlfriend cheated at her birthday"></textarea>
+  
+  <div class="t2s-sheet-title">Reference image (optional)</div>
+  <div class="t2s-upload" onclick="document.getElementById('t2sFile').click()">
+    <div>📷 Upload a pic as reference</div>
+    <div style="font-size:12px; margin-top:4px;">For character / setting</div>
+    <input type="file" id="t2sFile" hidden accept="image/*" onchange="handleFile(this)" />
+    <div id="t2sFilePreview" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="t2s-sheet-title">Script mode</div>
+  <div class="t2s-toggle-row">
+    <div class="t2s-toggle active" id="scriptAI" onclick="setScriptMode('ai')">AI writes for me</div>
+    <div class="t2s-toggle" id="scriptOwn" onclick="setScriptMode('own')">I have own script</div>
+  </div>
+  <textarea id="t2sOwnScript" class="t2s-textarea" placeholder="Paste your own script here..." style="display:none;"></textarea>
+
+  <div class="t2s-sheet-title">Style</div>
+  <div class="t2s-chips" id="styleChips">
+    <div class="t2s-chip active" data-val="auto">Auto</div>
+    <div class="t2s-chip" data-val="storytime">Storytime</div>
+    <div class="t2s-chip" data-val="horror">Horror</div>
+    <div class="t2s-chip" data-val="reddit">Reddit</div>
+    <div class="t2s-chip" data-val="motivation">Motivation</div>
+    <div class="t2s-chip" data-val="fact">Fact</div>
+    <div class="t2s-chip" data-val="conspiracy">Conspiracy</div>
+  </div>
+
+  <div class="t2s-sheet-title">Duration</div>
+  <div class="t2s-chips" id="durChips">
+    <div class="t2s-chip" data-val="10">10s</div>
+    <div class="t2s-chip" data-val="20">20s</div>
+    <div class="t2s-chip active" data-val="30">30s</div>
+    <div class="t2s-chip" data-val="40">40s</div>
+    <div class="t2s-chip" data-val="50">50s</div>
+    <div class="t2s-chip" data-val="60">60s</div>
+  </div>
+
+  <div class="t2s-sheet-title">Aspect ratio</div>
+  <div class="t2s-chips" id="aspectChips">
+    <div class="t2s-chip" data-val="16:9">16:9</div>
+    <div class="t2s-chip" data-val="4:3">4:3</div>
+    <div class="t2s-chip" data-val="1:1">1:1</div>
+    <div class="t2s-chip" data-val="3:4">3:4</div>
+    <div class="t2s-chip active" data-val="9:16">9:16</div>
+  </div>
+
+  <div class="t2s-sheet-title">Count</div>
+  <div class="t2s-chips" id="countChips">
+    <div class="t2s-chip active" data-val="1">x1</div>
+    <div class="t2s-chip" data-val="2">x2</div>
+    <div class="t2s-chip" data-val="3">x3</div>
+    <div class="t2s-chip" data-val="4">x4</div>
+  </div>
+
+  <div class="t2s-sheet-title">Video type</div>
+  <div class="t2s-chips" id="typeChips">
+    <div class="t2s-chip active" data-val="real">Real Stock</div>
+    <div class="t2s-chip" data-val="anime">Anime</div>
+    <div class="t2s-chip" data-val="cartoon">Cartoon</div>
+    <div class="t2s-chip" data-val="3d">3D</div>
+  </div>
+
+  <div class="t2s-sheet-title">Voice</div>
+  <div class="t2s-chips" id="voiceChips">
+    <div class="t2s-chip active" data-val="tiktok-girl">TikTok Girl</div>
+    <div class="t2s-chip" data-val="deep-guy">Deep Guy</div>
+    <div class="t2s-chip" data-val="british">British</div>
+    <div class="t2s-chip" data-val="soft">Soft Girl</div>
+    <div class="t2s-chip" data-val="horror">Horror Whisper</div>
+    <div class="t2s-chip" data-val="twi">🇬🇭 Twi (Akan)</div>
+  </div>
+
+  <div class="t2s-sheet-title">Model</div>
+  <select id="modelSelect" style="width:100%; background:#0a0a0f; border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px; color:white; margin-bottom:18px;">
+    <option>🍌 Nano Banana 2 Lite</option>
+    <option>Topic2Short Turbo</option>
+    <option>Topic2Short Cinematic</option>
+  </select>
+
+  <button class="t2s-generate" onclick="generateNow()">⚡ Generate Viral Short • 30s</button>
+  <div id="t2sSteps" style="display:none; margin-top:16px; background:rgba(168,85,247,0.08); border:1px solid rgba(168,85,247,0.2); border-radius:16px; padding:14px;"></div>
+</div>
+
+
+
+
+
+
+
 <script>
-// OWNER FETCH PATCH - sends email to backend
+// OWNER FETCH PATCH
 (function(){
   const ORIG_FETCH = window.fetch;
   window.fetch = function(url, opts){
@@ -247,11 +523,9 @@ document.querySelectorAll('.legal-overlay').forEach(ov=>{
         if(opts && opts.body){
           try{
             let body = JSON.parse(opts.body);
-            if(!body.email){
-              body.email = email || "powerkobbi9@gmail.com";
-              body.owner_email = email || "powerkobbi9@gmail.com";
-              opts.body = JSON.stringify(body);
-            }
+            body.email = email || "powerkobbi9@gmail.com";
+            body.owner_email = email || "powerkobbi9@gmail.com";
+            opts.body = JSON.stringify(body);
           }catch(e){}
         }
       }

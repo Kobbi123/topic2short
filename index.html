@@ -39,8 +39,6 @@ Error generating stack: `+u.message+`
 })();
 </script>
 
-<script src="https://js.paystack.co/v1/inline.js"></script>
-
 <!-- WORKING LOGIN + HEADER -->
 <style>
   #userBadgeTop { position:fixed; top:12px; right:12px; z-index:9999; background:#12121a; border:1px solid rgba(168,85,247,0.3); padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; font-size:12px; color:white; }
@@ -78,20 +76,6 @@ function showLoggedIn(email, photo){
   badge.innerHTML=`<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}</span><button id="doSignOut">Sign out</button>`;
   document.body.appendChild(badge);
   document.getElementById('doSignOut').onclick=()=>{ signOut(auth); };
-
-  ensureDashboardUI();
-  const emailEl=document.getElementById('t2sDashEmail'); if(emailEl) emailEl.textContent=email;
-  const root=document.getElementById('root'); if(root) root.style.display='none';
-  document.getElementById('t2sFinalDashboard').style.display='block';
-  document.getElementById('t2sBottomBarFinal').style.display='block';
-  document.body.style.overflow='auto';
-
-  const pendingTopic=localStorage.getItem('pendingTopic');
-  if(pendingTopic){
-    localStorage.removeItem('pendingTopic');
-    const pendingStyle=localStorage.getItem('pendingStyle'); localStorage.removeItem('pendingStyle');
-    openCreatorFinal(pendingTopic, pendingStyle);
-  }
 }
 function showLoggedOut(){
   document.querySelectorAll('button').forEach(b=>{
@@ -100,10 +84,6 @@ function showLoggedOut(){
     if(t==='Get Started') b.textContent='Sign up';
   });
   const old=document.getElementById('userBadgeTop'); if(old) old.remove();
-  const root=document.getElementById('root'); if(root) root.style.display='';
-  const dash=document.getElementById('t2sFinalDashboard'); if(dash) dash.style.display='none';
-  const bar=document.getElementById('t2sBottomBarFinal'); if(bar) bar.style.display='none';
-  const sheet=document.getElementById('t2sSheetFinal'); if(sheet) sheet.style.transform='translateY(100%)';
 }
 async function doLogin(planAfter=null){
   try{
@@ -116,263 +96,8 @@ async function doLogin(planAfter=null){
 function handlePlan(plan){
   const user=auth.currentUser;
   if(!user){ localStorage.setItem('pendingPlan', plan); alert("Please sign up first for "+plan+" plan"); doLogin(plan); return; }
-  const amountGHS = plan.toLowerCase().includes('starter') ? 320 : 800; // $20 ~ GHS320, $50 ~ GHS800
-  const paystackKey = "pk_live_38596382e8613bd3ecc9afa61fb150f41927d8fd"; // LIVE - your key
-  // To test with fake card, change to: pk_test_ca7c201ab2243a8944b7ac6531882e11424c426d
-  if(!window.PaystackPop){ alert("Paystack loading... please wait 2 secs and try again"); return; }
-  const handler = PaystackPop.setup({
-    key: paystackKey,
-    email: user.email,
-    amount: amountGHS * 100,
-    currency: "GHS",
-    ref: ""+Math.floor((Math.random()*1000000000)+1),
-    callback: function(response){
-      alert("✅ Payment successful! Ref: "+response.reference+" - Your "+plan+" plan is now active!");
-      localStorage.setItem('paidPlan', plan.toLowerCase());
-      localStorage.setItem('paystackRef', response.reference);
-      try{ supabase.from('users').update({plan: plan.toLowerCase()}).eq('id', user.uid).then(function(){}); }catch(e){}
-    },
-    onClose: function(){ console.log("Paystack checkout closed"); }
-  });
-  handler.openIframe();
+  alert(plan+" plan selected — Paystack checkout next (logged in as "+user.email+")");
 }
-
-// === DASHBOARD (built inside this module so it can call the real showLoggedIn/showLoggedOut) ===
-let t2sDashboardReady=false;
-let t2sGenType='video', t2sScriptMode='ai';
-let t2sSelections={style:'auto',duration:'30',aspect:'9:16',count:'1',type:'real',voice:'tiktok-girl'};
-
-function ensureDashboardUI(){
-  if(t2sDashboardReady) return;
-  t2sDashboardReady=true;
-
-  if(!document.getElementById('t2sSpinStyle')){
-    const st=document.createElement('style'); st.id='t2sSpinStyle';
-    st.textContent='@keyframes t2sSpin{to{transform:rotate(360deg)}}';
-    document.head.appendChild(st);
-  }
-
-  const dash=document.createElement('div');
-  dash.id='t2sFinalDashboard';
-  dash.style.cssText='position:fixed;inset:0;background:#0a0a0f;z-index:9999;display:none;overflow-y:auto;';
-  dash.innerHTML=`
-    <div style="position:sticky;top:0;z-index:10;backdrop-filter:blur(20px);background:rgba(10,10,15,0.8);border-bottom:1px solid rgba(255,255,255,0.06);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;">
-      <div style="display:flex;align-items:center;gap:8px;font-weight:800;color:white;">
-        <div style="width:28px;height:28px;background:#a855f7;border-radius:8px;display:grid;place-items:center;">✦</div> Topic2Short
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span id="t2sDashEmail" style="font-size:13px;color:rgba(255,255,255,0.6);"></span>
-        <button id="t2sDashHome" style="padding:6px 14px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;">Home</button>
-        <button id="t2sDashSignOut" style="padding:6px 14px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);color:white;font-size:12px;font-weight:600;cursor:pointer;">Sign out</button>
-      </div>
-    </div>
-    <div style="max-width:1200px;margin:0 auto;padding:32px 24px 120px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <h1 style="font-size:28px;font-weight:800;color:white;letter-spacing:-0.02em;">Projects</h1>
-        <button id="t2sNewBtn" style="background:#a855f7;color:white;padding:10px 20px;border-radius:999px;font-weight:600;font-size:14px;border:none;cursor:pointer;box-shadow:0 0 20px rgba(168,85,247,0.4);">+ New</button>
-      </div>
-      <div id="t2sProjGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;">
-        <div style="background:#12121a;border:1px dashed rgba(255,255,255,0.15);border-radius:20px;padding:48px;text-align:center;color:rgba(255,255,255,0.5);grid-column:1/-1;">
-          No projects yet. Click + New to create your first viral short.
-        </div>
-      </div>
-    </div>`;
-  document.body.appendChild(dash);
-
-  const bar=document.createElement('div');
-  bar.id='t2sBottomBarFinal';
-  bar.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:92%;max-width:720px;background:#1a1a24;border:1px solid rgba(255,255,255,0.1);border-radius:32px;padding:14px 16px;z-index:10000;display:none;box-shadow:0 20px 60px rgba(0,0,0,0.6);';
-  bar.innerHTML=`
-    <div id="t2sBarRow" style="display:flex;align-items:center;gap:12px;cursor:pointer;">
-      <div style="width:36px;height:36px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);display:grid;place-items:center;color:white;">+</div>
-      <input id="t2sBarInput" style="flex:1;background:transparent;border:none;color:white;outline:none;font-size:15px;" placeholder="What do you want to make?" readonly />
-      <div style="padding:6px 12px;border-radius:999px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.1);font-size:13px;color:rgba(255,255,255,0.7);">
-        <span id="t2sBarType">Video</span> <span id="t2sBarCount">x1</span>
-      </div>
-      <div style="width:36px;height:36px;border-radius:999px;background:white;color:black;display:grid;place-items:center;">→</div>
-    </div>`;
-  document.body.appendChild(bar);
-
-  const sheet=document.createElement('div');
-  sheet.id='t2sSheetFinal';
-  sheet.style.cssText='position:fixed;bottom:0;left:0;right:0;background:#12121a;border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;z-index:10001;max-height:86vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s;padding:20px;';
-  sheet.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-      <div style="font-weight:700;color:white;font-size:16px;">Create</div>
-      <button id="t2sSheetClose" style="width:32px;height:32px;border-radius:999px;background:rgba(255,255,255,0.08);border:none;color:white;cursor:pointer;">✕</button>
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Generate as</div>
-    <div style="display:flex;background:rgba(255,255,255,0.06);border-radius:999px;padding:4px;gap:4px;margin-bottom:18px;border:1px solid rgba(255,255,255,0.08);">
-      <div id="t2sToggleVideo" style="flex:1;padding:10px;border-radius:999px;text-align:center;font-weight:600;font-size:14px;cursor:pointer;background:white;color:black;">🎬 Video</div>
-      <div id="t2sToggleImage" style="flex:1;padding:10px;border-radius:999px;text-align:center;font-weight:600;font-size:14px;cursor:pointer;color:rgba(255,255,255,0.6);">🖼️ Image</div>
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">What do you want to make?</div>
-    <textarea id="t2sMainPromptFinal" style="width:100%;background:#0a0a0f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:14px;color:white;font-size:14px;min-height:90px;resize:none;outline:none;margin-bottom:18px;" placeholder="Describe your topic... e.g. My girlfriend cheated at her birthday"></textarea>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Reference image (optional)</div>
-    <div id="t2sUploadBox" style="border:1px dashed rgba(255,255,255,0.2);border-radius:16px;padding:16px;text-align:center;cursor:pointer;color:rgba(255,255,255,0.5);margin-bottom:18px;background:rgba(255,255,255,0.03);">
-      <div>📷 Upload a pic as reference</div>
-      <div style="font-size:12px;margin-top:4px;">For character / setting</div>
-      <input type="file" id="t2sFileFinal" hidden accept="image/*" />
-      <div id="t2sFilePreviewFinal" style="margin-top:10px;"></div>
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Script mode</div>
-    <div style="display:flex;background:rgba(255,255,255,0.06);border-radius:999px;padding:4px;gap:4px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.08);">
-      <div id="t2sScriptAI" style="flex:1;padding:10px;border-radius:999px;text-align:center;font-weight:600;font-size:14px;cursor:pointer;background:white;color:black;">AI writes for me</div>
-      <div id="t2sScriptOwn" style="flex:1;padding:10px;border-radius:999px;text-align:center;font-weight:600;font-size:14px;cursor:pointer;color:rgba(255,255,255,0.6);">I have own script</div>
-    </div>
-    <textarea id="t2sOwnScriptFinal" style="display:none;width:100%;background:#0a0a0f;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:14px;color:white;font-size:14px;min-height:80px;resize:none;outline:none;margin-bottom:18px;" placeholder="Paste your own script here..."></textarea>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Style</div>
-    <div id="t2sStyleChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-      ${['Auto','Storytime','Horror','Reddit','Motivation','Fact','Conspiracy'].map((s,i)=>`<div class="t2sChip" data-group="style" data-val="${s.toLowerCase()}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:${i===0?'#a855f7':'rgba(255,255,255,0.06)'};color:${i===0?'white':'rgba(255,255,255,0.7)'};">${s}</div>`).join('')}
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Duration</div>
-    <div id="t2sDurChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-      ${['10','20','30','40','50','60'].map(d=>`<div class="t2sChip" data-group="duration" data-val="${d}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:${d==='30'?'#a855f7':'rgba(255,255,255,0.06)'};color:${d==='30'?'white':'rgba(255,255,255,0.7)'};">${d}s</div>`).join('')}
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Aspect ratio</div>
-    <div id="t2sAspectChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-      ${['16:9','4:3','1:1','3:4','9:16'].map(a=>`<div class="t2sChip" data-group="aspect" data-val="${a}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:${a==='9:16'?'#a855f7':'rgba(255,255,255,0.06)'};color:${a==='9:16'?'white':'rgba(255,255,255,0.7)'};">${a}</div>`).join('')}
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Count</div>
-    <div id="t2sCountChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-      ${['1','2','3','4'].map(c=>`<div class="t2sChip" data-group="count" data-val="${c}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:${c==='1'?'#a855f7':'rgba(255,255,255,0.06)'};color:${c==='1'?'white':'rgba(255,255,255,0.7)'};">x${c}</div>`).join('')}
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Video type</div>
-    <div id="t2sTypeChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-      ${[['real','Real Stock'],['anime','Anime'],['cartoon','Cartoon'],['3d','3D']].map(([v,l])=>`<div class="t2sChip" data-group="type" data-val="${v}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:${v==='real'?'#a855f7':'rgba(255,255,255,0.06)'};color:${v==='real'?'white':'rgba(255,255,255,0.7)'};">${l}</div>`).join('')}
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Voice</div>
-    <div id="t2sVoiceChips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
-      ${[['tiktok-girl','TikTok Girl'],['deep-guy','Deep Guy'],['british','British'],['soft','Soft Girl'],['horror','Horror Whisper'],['twi','🇬🇭 Twi (Akan)']].map(([v,l])=>`<div class="t2sChip" data-group="voice" data-val="${v}" style="padding:8px 14px;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:${v==='tiktok-girl'?'#a855f7':'rgba(255,255,255,0.06)'};color:${v==='tiktok-girl'?'white':'rgba(255,255,255,0.7)'};">${l}</div>`).join('')}
-    </div>
-
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,0.4);margin-bottom:8px;font-weight:600;">Model</div>
-    <select id="t2sModelSelect" style="width:100%;background:#0a0a0f;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;color:white;margin-bottom:18px;">
-      <option>🍌 Nano Banana 2 Lite</option>
-      <option>Topic2Short Turbo</option>
-      <option>Topic2Short Cinematic</option>
-    </select>
-
-    <button id="t2sGenerateBtn" style="width:100%;background:linear-gradient(135deg,#a855f7,#ec4899);color:white;padding:16px;border-radius:999px;font-weight:700;font-size:15px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 0 30px rgba(168,85,247,0.4);">⚡ Generate Viral Short • 30s</button>
-    <div id="t2sStepsFinal" style="display:none;margin-top:16px;background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:16px;padding:14px;"></div>
-  `;
-  document.body.appendChild(sheet);
-
-  wireDashboardEvents();
-}
-
-function wireDashboardEvents(){
-  document.getElementById('t2sDashHome').addEventListener('click',()=>{
-    document.getElementById('t2sFinalDashboard').style.display='none';
-    const root=document.getElementById('root'); if(root) root.style.display='';
-  });
-  document.getElementById('t2sDashSignOut').addEventListener('click',()=>signOut(auth));
-  document.getElementById('t2sNewBtn').addEventListener('click',()=>openCreatorFinal());
-  document.getElementById('t2sBarRow').addEventListener('click',()=>openSheetFinal());
-  document.getElementById('t2sSheetClose').addEventListener('click',closeSheetFinal);
-
-  document.getElementById('t2sToggleVideo').addEventListener('click',()=>setGenTypeFinal('video'));
-  document.getElementById('t2sToggleImage').addEventListener('click',()=>setGenTypeFinal('image'));
-  document.getElementById('t2sScriptAI').addEventListener('click',()=>setScriptModeFinal('ai'));
-  document.getElementById('t2sScriptOwn').addEventListener('click',()=>setScriptModeFinal('own'));
-
-  document.getElementById('t2sUploadBox').addEventListener('click',()=>document.getElementById('t2sFileFinal').click());
-  document.getElementById('t2sFileFinal').addEventListener('change',handleFileFinal);
-
-  document.querySelectorAll('.t2sChip').forEach(chip=>{
-    chip.addEventListener('click',()=>{
-      const group=chip.dataset.group, val=chip.dataset.val;
-      document.querySelectorAll('.t2sChip[data-group="'+group+'"]').forEach(c=>{
-        c.style.background='rgba(255,255,255,0.06)'; c.style.color='rgba(255,255,255,0.7)';
-      });
-      chip.style.background='#a855f7'; chip.style.color='white';
-      t2sSelections[group]=val;
-      if(group==='count') document.getElementById('t2sBarCount').textContent='x'+val;
-    });
-  });
-
-  document.getElementById('t2sGenerateBtn').addEventListener('click',generateNowFinal);
-}
-
-function setGenTypeFinal(type){
-  t2sGenType=type;
-  const vBtn=document.getElementById('t2sToggleVideo'), iBtn=document.getElementById('t2sToggleImage');
-  if(type==='video'){ vBtn.style.background='white'; vBtn.style.color='black'; iBtn.style.background='transparent'; iBtn.style.color='rgba(255,255,255,0.6)'; }
-  else { iBtn.style.background='white'; iBtn.style.color='black'; vBtn.style.background='transparent'; vBtn.style.color='rgba(255,255,255,0.6)'; }
-  document.getElementById('t2sBarType').textContent = type==='video'?'Video':'Image';
-}
-function setScriptModeFinal(mode){
-  t2sScriptMode=mode;
-  const aiBtn=document.getElementById('t2sScriptAI'), ownBtn=document.getElementById('t2sScriptOwn');
-  if(mode==='ai'){ aiBtn.style.background='white'; aiBtn.style.color='black'; ownBtn.style.background='transparent'; ownBtn.style.color='rgba(255,255,255,0.6)'; }
-  else { ownBtn.style.background='white'; ownBtn.style.color='black'; aiBtn.style.background='transparent'; aiBtn.style.color='rgba(255,255,255,0.6)'; }
-  document.getElementById('t2sOwnScriptFinal').style.display = mode==='own' ? 'block' : 'none';
-}
-function handleFileFinal(){
-  const input=document.getElementById('t2sFileFinal');
-  const file=input.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    document.getElementById('t2sFilePreviewFinal').innerHTML='<img src="'+e.target.result+'" style="width:100%;border-radius:12px;margin-top:8px;max-height:180px;object-fit:cover;" />';
-  };
-  reader.readAsDataURL(file);
-}
-function openCreatorFinal(prefillTopic, prefillStyle){
-  document.getElementById('t2sBottomBarFinal').style.display='block';
-  if(prefillTopic){ document.getElementById('t2sMainPromptFinal').value=prefillTopic; }
-  if(prefillStyle){
-    const chip=document.querySelector('.t2sChip[data-group="style"][data-val="'+prefillStyle.toLowerCase()+'"]');
-    if(chip) chip.click();
-  }
-  openSheetFinal();
-}
-function openSheetFinal(){ document.getElementById('t2sSheetFinal').style.transform='translateY(0)'; }
-function closeSheetFinal(){ document.getElementById('t2sSheetFinal').style.transform='translateY(100%)'; }
-
-function generateNowFinal(){
-  const prompt=document.getElementById('t2sMainPromptFinal').value.trim();
-  const ownScript=document.getElementById('t2sOwnScriptFinal').value.trim();
-  if(!prompt && !ownScript){ alert('Type what you want to make first'); return; }
-  const stepsDiv=document.getElementById('t2sStepsFinal');
-  stepsDiv.style.display='block';
-  stepsDiv.innerHTML='<div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:8px;">Transparent AI trace • Like you see me think</div>';
-  const steps=[
-    'Analyzing your topic...',
-    'Writing script (style: '+t2sSelections.style+')...',
-    'Finding '+(t2sGenType==='video'?'clips':'images')+' matching...',
-    'Generating voice ('+t2sSelections.voice+')...',
-    'Adding viral captions...',
-    'Ready to preview'
-  ];
-  let i=0;
-  function nextStep(){
-    if(i>=steps.length){
-      stepsDiv.innerHTML+='<div style="margin-top:12px;color:#a855f7;font-weight:600;">✓ Ready — check your project in the grid.</div>';
-      return;
-    }
-    const div=document.createElement('div');
-    div.style.cssText='padding:6px 0;font-size:13px;display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.8);';
-    div.innerHTML='<span style="width:16px;height:16px;border:2px solid #a855f7;border-top-color:transparent;border-radius:50%;display:inline-block;animation:t2sSpin 1s linear infinite;"></span> '+steps[i];
-    stepsDiv.appendChild(div);
-    setTimeout(()=>{
-      div.innerHTML='✓ '+steps[i];
-      div.style.color='#22c55e';
-      i++; setTimeout(nextStep,600);
-    },800);
-  }
-  nextStep();
-}
-
 function attachAuth(){
   document.querySelectorAll('button').forEach(btn=>{
     const txt=(btn.textContent||'').trim();
@@ -384,27 +109,9 @@ function attachAuth(){
       btn.dataset.planFixed="1";
       btn.addEventListener('click',(e)=>{ e.preventDefault(); e.stopImmediatePropagation(); const plan=txt.includes('Starter')?'Starter':'Pro'; handlePlan(plan); }, true);
     }
-    if(txt==='Generate' && !btn.dataset.genFixed){
-      btn.dataset.genFixed="1";
-      btn.addEventListener('click',(e)=>{
-        e.preventDefault(); e.stopImmediatePropagation();
-        const topicInput=document.getElementById('topic-input');
-        const topic = topicInput ? topicInput.value.trim() : '';
-        let style='';
-        document.querySelectorAll('button').forEach(b=>{
-          const t=(b.textContent||'').trim();
-          if(t.indexOf('Style:')===0) style=t.replace('Style:','').trim();
-        });
-        if(topic) localStorage.setItem('pendingTopic', topic);
-        if(style) localStorage.setItem('pendingStyle', style);
-        if(auth.currentUser){ showLoggedIn(auth.currentUser.email, auth.currentUser.photoURL); }
-        else { doLogin(); }
-      }, true);
-    }
   });
 }
 attachAuth(); setTimeout(attachAuth,1000); setTimeout(attachAuth,2500); setInterval(attachAuth,2000);
-
 onAuthStateChanged(auth,(user)=>{
   if(user){ saveUser(user); showLoggedIn(user.email,user.photoURL);
     const pending=localStorage.getItem('pendingPlan'); if(pending){ localStorage.removeItem('pendingPlan'); setTimeout(()=>handlePlan(pending),800); }
@@ -502,8 +209,6 @@ document.querySelectorAll('.legal-overlay').forEach(ov=>{
   ov.addEventListener('click', (e)=>{ if(e.target===ov) closeLegal(ov.id); });
 });
 </script>
-
-
 
 </body>
 </html>

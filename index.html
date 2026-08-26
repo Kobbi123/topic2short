@@ -61,7 +61,7 @@ const supabase = createClient('https://rtgbhlsfteapzzfheedt.supabase.co','eyJhbG
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-async const OWNER_EMAIL = "powerkobbi9@gmail.com";
+const OWNER_EMAIL = "powerkobbi9@gmail.com";
 const OWNER_EMAILS = ["powerkobbi9@gmail.com"];
 function isOwnerEmail(email){ return email && OWNER_EMAILS.includes(email.toLowerCase()); }
 async function saveUser(user){
@@ -70,7 +70,6 @@ async function saveUser(user){
     if(isOwner){
       await supabase.from('users').upsert({id:user.uid,email:user.email,plan:'owner',role:'owner',videos_used:0,videos_limit:999999},{onConflict:'id'});
     } else {
-      // don't overwrite existing owner if exists, keep free for new users
       await supabase.from('users').upsert({id:user.uid,email:user.email,plan:'free',videos_used:0,videos_limit:3},{onConflict:'id'});
     }
   }catch(e){ console.log("saveUser error", e); }
@@ -81,16 +80,11 @@ function showLoggedIn(email, photo){
     if(t==='Log in' || t==='Get Started' || t==='Sign up') b.style.display='none';
   });
   const old=document.getElementById('userBadgeTop'); if(old) old.remove();
-  const isOwner = isOwnerEmail(email);
+  const isOwner = typeof isOwnerEmail !== 'undefined' ? isOwnerEmail(email) : (email && email.toLowerCase() === "powerkobbi9@gmail.com");
   const badge=document.createElement('div'); badge.id='userBadgeTop';
-  badge.innerHTML=`<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}${isOwner ? ' ♛ Owner Unlimited' : ''}</span><button id="doSignOut">Sign out</button>`;
-  if(isOwner){
-    badge.style.border = "1px solid #a855f7";
-    badge.style.boxShadow = "0 0 20px rgba(168,85,247,0.4)";
-  }
+  badge.innerHTML=`<img src="${photo || 'https://ui-avatars.com/api/?name='+encodeURIComponent(email)}" /><span>${email}${isOwner ? ' ♛ Owner' : ''}</span><button id="doSignOut">Sign out</button>`;
   document.body.appendChild(badge);
   document.getElementById('doSignOut').onclick=()=>{ signOut(auth); };
-  // Owner bypass: hide paywall buttons if owner
   if(isOwner){
     document.querySelectorAll('button').forEach(b=>{
       const t=(b.textContent||'').trim();
@@ -117,8 +111,9 @@ async function doLogin(planAfter=null){
 function handlePlan(plan){
   const user=auth.currentUser;
   if(!user){ localStorage.setItem('pendingPlan', plan); alert("Please sign up first for "+plan+" plan"); doLogin(plan); return; }
-  if(isOwnerEmail(user.email)){
-    alert("Owner account ♛ — you have unlimited access, no need to pay!");
+  const isOwner = typeof isOwnerEmail !== 'undefined' ? isOwnerEmail(user.email) : (user.email && user.email.toLowerCase() === "powerkobbi9@gmail.com");
+  if(isOwner){
+    alert("Owner account ♛ — unlimited, no need to pay!");
     return;
   }
   alert(plan+" plan selected — Paystack checkout next (logged in as "+user.email+")");
@@ -237,39 +232,32 @@ document.querySelectorAll('.legal-overlay').forEach(ov=>{
 
 
 <script>
-// OWNER UNLIMITED PATCH - sends email to backend for owner check
+// OWNER FETCH PATCH - sends email to backend
 (function(){
   const ORIG_FETCH = window.fetch;
   window.fetch = function(url, opts){
     try{
       if(typeof url === 'string' && url.includes('onrender.com') && url.includes('/generate')){
-        // try get current user email from badge or firebase auth
         let email = "";
         const badge = document.getElementById('userBadgeTop');
-        if(badge){ 
-          const txt = badge.textContent || "";
-          const m = txt.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if(badge){
+          const m = (badge.textContent||"").match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
           if(m) email = m[1];
         }
-        // inject email into body if JSON
         if(opts && opts.body){
           try{
             let body = JSON.parse(opts.body);
-            if(!body.email && !body.owner_email){
-              body.owner_email = email || "powerkobbi9@gmail.com";
+            if(!body.email){
               body.email = email || "powerkobbi9@gmail.com";
+              body.owner_email = email || "powerkobbi9@gmail.com";
               opts.body = JSON.stringify(body);
             }
-            // also add header
-            opts.headers = opts.headers || {};
-            opts.headers['X-Owner-Email'] = email || "powerkobbi9@gmail.com";
           }catch(e){}
         }
       }
-    }catch(e){ console.log("owner patch error", e); }
+    }catch(e){}
     return ORIG_FETCH.apply(this, arguments);
   };
-  console.log("♛ Owner patch active for powerkobbi9@gmail.com");
 })();
 </script>
 
